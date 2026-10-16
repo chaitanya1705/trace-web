@@ -9,6 +9,7 @@ import { LogoTile } from "@/components/ui/Logo";
 import { PageHead } from "@/components/ui/PageHead";
 import { Empty, ErrorState, Loading, Unavailable } from "@/components/ui/States";
 import { ArchitectureTab } from "./Architecture";
+import { LogsTab } from "./LogsTab";
 import { ConnectorsTab, CodeTab, ScopeTab, TeamTab } from "./ProjectTabs";
 import { DetailShell } from "./DetailShell";
 import { NewProject } from "./NewProject";
@@ -106,7 +107,7 @@ function ProjectDetail({ pid, tab }: { pid: string; tab: string }) {
       {cur === "scope" ? <ScopeTab p={p} /> : null}
       {cur === "team" ? <TeamTab p={p} /> : null}
       {cur === "architecture" ? <ArchitectureTab projectId={p.id} /> : null}
-      {cur === "logs" ? <Empty title="Logs are not available yet" lede="Log search needs log ingestion (a Vercel log drain) which is still being built. TRACE shows nothing rather than invent log lines." /> : null}
+      {cur === "logs" ? <LogsTab p={p} /> : null}
     </DetailShell>
   );
 }
