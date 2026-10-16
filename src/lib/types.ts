@@ -1,0 +1,71 @@
+/** Hand-written shapes for the endpoints used so far. Replace with types generated from docs/openapi.json (T-002). */
+export type Readiness = { key: string; label: string; state: "ok" | "warning" | "todo" | "skipped" | "failed"; detail?: string | null };
+export type ConnectionBrief = { id: string; provider: string; kind: string; status: string; last_verified_at: string | null };
+export type Environment = { id: string; name: string; key: string };
+export type Project = {
+  id: string;
+  name: string;
+  description: string | null;
+  owner_user_id: string;
+  environments: Environment[];
+  connections: ConnectionBrief[];
+  readiness: Readiness[];
+  updated_at: string;
+  version: number;
+  services?: { id: string; name: string; key: string }[];
+  capabilities?: string[];
+};
+export type Connection = {
+  id: string;
+  project_id: string | null;
+  draft_id: string | null;
+  provider: "github" | "vercel" | "generic";
+  kind: "code" | "hosting";
+  auth_method: string;
+  status: string;
+  config: Record<string, any>;
+  effective_scopes: Record<string, any> | null;
+  last_verified_at: string | null;
+  last_error: { code: string; message: string } | null;
+  credential_expires_at: string | null;
+  stores_secret: boolean;
+  version: number;
+};
+export type CheckStage = { key: string; title: string; status: "ok" | "warn" | "fail" | "skip"; message: string; api: string };
+export type Check = { id: string; outcome: string; stages: CheckStage[]; started_at: string; finished_at: string | null };
+export type Resource = Record<string, any>;
+export type Ticket = {
+  id: string;
+  display_id: string;
+  project_id: string | null;
+  project_name: string | null;
+  source: string;
+  external_id: string | null;
+  title: string;
+  description?: string;
+  severity: string | null;
+  environment_key: string | null;
+  service_hint: string | null;
+  status: "open" | "resolved" | "closed";
+  opened_at: string;
+  window_start: string | null;
+  window_end: string | null;
+  evidence_sync: string;
+  evidence_summary: Record<string, any>;
+  investigate: { available: boolean; reason: string | null };
+  revision_number: number;
+  version: number;
+};
+export type Draft = {
+  id: string;
+  status: string;
+  data: {
+    basics?: { name: string; description?: string | null; environments: { name: string; key?: string }[]; services?: { name: string }[] };
+    log_scope?: Record<string, { provider_resource_id: string; service_key?: string | null }[]>;
+    repositories?: { provider_repository_id: string; selected_ref?: string | null }[];
+  };
+  stages: Record<string, "todo" | "done" | "skipped">;
+  project_id: string | null;
+  version: number;
+};
+export type Job = { id: string; status: string; stage: string | null; error: { code: string; message: string } | null };

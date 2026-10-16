@@ -1,0 +1,47 @@
+/*
+ * trace-web layout hardening (PRD R-020). The prototype's single-column breakpoints used `1fr`, whose minimum is
+ * `auto`, so one wide child (a diff, a table, a long token) stretched the whole column past the viewport.
+ * These rules let grid/flex children shrink and keep wide content scrolling locally instead.
+ */
+.grid > *, .stack > *, .homegrid > *, .invgrid > *, .setgrid > *, .wiz > *, .wz-main > *, .page > *, .cf-body, .setbody { min-width: 0; }
+
+@media (max-width: 1180px) {
+  .g-side, .g-main { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 900px) {
+  .setgrid { grid-template-columns: minmax(0, 1fr); }
+  .g2, .g3 { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* headers and toolbars wrap instead of pushing actions off-screen */
+.hh { flex-wrap: wrap; }
+.ph { flex-wrap: wrap; }
+.row.wrapr { flex-wrap: wrap; }
+.srow { flex-wrap: wrap; gap: 8px 14px; }
+
+/* segmented controls scroll when they are wider than their container */
+.seg { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.seg::-webkit-scrollbar { display: none; }
+
+/* long unbroken strings (ids, paths, hashes) wrap inside cards */
+.card, .callout, .tres, .tqp { overflow-wrap: break-word; }
+.tqp { white-space: pre-wrap; }
+
+/* diffs and code scroll sideways inside their own box */
+.diff, .code, .cdb, .cgsteps { max-width: 100%; overflow-x: auto; }
+
+/* the ten-column ticket table etc. already scroll inside .scroll-x; make sure the wrapper can shrink */
+.scroll-x { max-width: 100%; }
+
+@media (max-width: 640px) {
+  .kpis { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+  .hrow { flex-wrap: wrap; }
+  .ph > .row { width: 100%; }
+}
+
+/* reduced motion: keep layout, drop movement (WCAG 2.3.3) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+.skip { position: absolute; left: -999px; top: 8px; z-index: 100; background: var(--pri); color: var(--onpri); padding: 8px 12px; border-radius: 8px; }
+.skip:focus { left: 8px; }

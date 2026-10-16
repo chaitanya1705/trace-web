@@ -1,18 +1,21 @@
-# CLAUDE.md — TRACE (trace-web)
+# trace-web: instructions for Claude
 
-Applies to this project only. Repos: trace-web (https://github.com/chaitanya1705/trace-web.git), trace-api (https://github.com/chaitanya1705/trace-api).
+Next.js frontend for TRACE. Read `README.md`, `PORTING.md` and the plans in `D:\Trace\Plan's And Artifacts\Plans\TRACE\` first
+(`Context.md`, `PRD.md`, `architecture.md`, `tasks.md`). Only GitHub, Vercel and Supabase connectors are supported for now.
 
-## Docs
-- `TRACE/` holds the plans: Context, PRD, architecture, ontology. Read them before starting a task.
-- `task.md` (repo root) is the task backlog and progress log. It is the source of truth when running in the cloud.
+## Tools to use
+- **Code review:** before calling a task done, run the `/code-review` skill (add `--fix` to apply findings) on the changed files.
+- **Playwright:** verify UI changes in a real browser rather than by reading code. Check 1440, 1024, 768, 390 and 320 px and
+  confirm there is no page-wide horizontal overflow. Use the Playwright plugin or MCP if it is installed; otherwise use
+  `playwright-core` with `channel: 'chrome'` from a scratch folder outside the repo. In Git Bash, prefix URL-path arguments with `MSYS_NO_PATHCONV=1`.
+- **Architecture:** check new work against `architecture.md` (layer boundaries, route layout, UI state ownership) and use an
+  architecture/planning plugin or agent if one is installed. Record any decision that departs from the plans in `PORTING.md`.
 
-## Git
-- Work only on branch `feature/trace-implementation`; keep pushing to it. A PR to `main` exists; if not, create it.
-- Never mention Claude/AI in commits or PRs: no Co-Authored-By, no "Generated with" lines.
-- Never commit secrets, `.env`, `node_modules`, `.venv`. No force-push, no `--no-verify`.
+If a plugin above is not installed, say so and use the fallback named here instead of skipping the check.
 
-## After every task
-1. Update `task.md`: set the task status (DONE / IN_PROGRESS / BLOCKED), and add an "Agent progress log" entry with date, commits, exact checks and results, limitations, **what remains** and the next task. Follow the Workflow section in the file.
-2. If the task touched the other repo, update its `task.md` the same way so both stay in sync.
-3. Commit all changes (including `task.md`), push to `feature/trace-implementation`.
-4. Tell the user what is done, what remains, and the PR link.
+## Rules
+- Run `npx tsc --noEmit` and `npx next build` before finishing.
+- **No mock data.** Screens read the real API (`src/lib/useApi.tsx` over `src/lib/call.ts`); screens whose API does not exist show an honest "not available yet" state (`components/ui/States.tsx`). `src/data` holds only brand logos. Never add sample rows.
+- **No login.** The backend runs with AUTH_MODE=off; the app calls it with no token. See `trace-api/docs/WEB_INTEGRATION.md` for the screen-to-endpoint map.
+- No credentials in the repo or browser storage.
+- Keep the prototype's design system (`src/app/globals.css`) as is; put layout fixes in `src/app/responsive.css`.

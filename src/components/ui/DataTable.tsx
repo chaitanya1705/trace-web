@@ -181,6 +181,8 @@ export function DataTable<T extends Record<string, any>>(cfg: TableCfg<T>) {
                       className={`${live ? "click " : ""}trow`}
                       style={{ ["--i" as string]: Math.min(i, 12) }}
                       onClick={live ? () => go(row) : undefined}
+                      tabIndex={live ? 0 : undefined}
+                      onKeyDown={live ? (e) => { if (e.key === "Enter" && e.target === e.currentTarget) go(row); } : undefined}
                     >
                       {cfg.cols.map((col) => (
                         <td key={col.k}>{col.render ? col.render(row) : (row[col.k] ?? "")}</td>

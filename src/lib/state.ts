@@ -18,13 +18,9 @@ export const S = {
   proj: "All" as string,
   env: "All" as string,
   pref: { theme: "system", density: "comfortable", rows: 25, tz: "UTC", notif: { wait: 1, fix: 1, pr: 1, digest: 0 } } as Prefs,
-  awayRead: {} as Record<string, number>,
-  /** Selected node on the architecture graph. */
-  node: "payment" as string,
-  lens: "INC-2417" as string,
   phase: "now" as string,
   layers: { observed: 1, declared: 1, inferred: 1 } as Record<string, number>,
-  archView: "map" as "map" | "db",
+  archView: "map" as "map" | "code" | "db",
   /** Investigation side panel: which tab, and which node is highlighted in the impact map. */
   invTab: "impact" as "impact" | "timeline" | "hyp" | "evidence",
   bnode: null as string | null,
@@ -40,7 +36,3 @@ export const setS = (patch: Partial<typeof S>) => {
 };
 
 export const inProj = (r: { project?: string }) => S.proj === "All" || r.project === S.proj;
-export const isOpen = (r: { status: string }) => ["New", "Investigating", "Waiting on people", "Fix proposed"].includes(r.status);
-
-/** Live-usage counters shown in the sidebar footer. */
-export const USAGE = { gb: 1.8, gbMax: 5, calls: 212, callsMax: 500 };
