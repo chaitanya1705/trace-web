@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { CONNCOLOR, CONNLOGO, LOGO } from "@/data/logos";
+import { ScreenPreview } from "./ScreenPreviews";
 import { applyTheme, themeIsDark, toggleTheme } from "@/lib/theme";
 import { rng } from "@/lib/util";
 import { Icon } from "@/components/ui/Icon";
@@ -27,18 +28,7 @@ const SCR: Array<[string, string, string, string]> = [
 const RAIL_ICONS = ["alert", "flask", "commit", "chart", "db"];
 const RAIL_TITLES = ["Tickets", "Investigate", "Changes and PRs", "Observability", "Projects"];
 
-/** The pinned product stage describes each screen in words. Real screens need a signed-in workspace and live data, so no sample data is shown here. */
-function Preview({ k }: { k: string }) {
-  const row = SCR.find((x) => x[1] === k) || SCR[0];
-  return (
-    <div className="page-host">
-      <div className="page" style={{ maxWidth: 560 }}>
-        <h1 className="h1">{row[0]}</h1>
-        <p className="lede">{row[2]}</p>
-      </div>
-    </div>
-  );
-}
+const Preview = ({ k }: { k: string }) => <ScreenPreview k={k} />;
 
 const CONNECTORS = [
   { id: "github", name: "GitHub" },
@@ -311,7 +301,7 @@ export function Landing() {
                 ))}
               </div>
               <div className="l-frame" id="lframe">
-                <div className="l-fbar"><i /><i /><i /><span id="lurl">trace.app / {cur[3]}</span></div>
+                <div className="l-fbar"><i /><i /><i /><span id="lurl">trace.app / {cur[3]}</span><span style={{ marginLeft: "auto", font: "500 11px var(--f-body)", opacity: 0.7 }}>Sample data</span></div>
                 <div className={`l-fview${swapping ? " swap" : ""}`} id="lfview" ref={view}>
                   <div className="l-fin" id="lfin" ref={fin} inert>
                     <aside className="side">
