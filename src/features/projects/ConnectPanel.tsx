@@ -11,7 +11,7 @@ import { LogoTile } from "@/components/ui/Logo";
 import { ErrorState, Loading } from "@/components/ui/States";
 
 export type Owner = { draftId: string; projectId?: undefined } | { projectId: string; draftId?: undefined };
-type Kind = "hosting" | "code";
+type Kind = "hosting" | "code" | "database";
 
 const base = (o: Owner) => (o.draftId ? `/project-drafts/${o.draftId}` : `/projects/${o.projectId}`);
 const pending = (c?: Connection) => !!c && (c.status === "draft" || c.status === "verifying");
@@ -33,9 +33,12 @@ export function ConnectionPanel({ kind, owner }: { kind: Kind; owner: Owner }) {
   const checks = useApi<Check[]>(conn ? `/connections/${conn.id}/checks` : null, () => (pending(conn) ? 1500 : false));
   const [token, setToken] = useState("");
   const [team, setTeam] = useState("");
+  const [dsn, setDsn] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<ApiError | null>(null);
   const [rotating, setRotating] = useState(false);
+  /* GitHub does not redirect back when the app is already installed, so also offer the existing installations */
+  const installs = useApi<Array<{ id: number; account: string | null; repository_selection: string | null; suspended: boolean }>>(kind === "code" && list.data && !list.data.some((c) => c.kind === "code" && c.status !== "disconnected") ? "/connect/github/installations" : null);
 
   const run = async (fn: () => Promise<unknown>, ok?: string) => {
     setBusy(true);
@@ -64,6 +67,12 @@ export function ConnectionPanel({ kind, owner }: { kind: Kind; owner: Owner }) {
       setToken("");
     }, "Checking the Vercel connection…");
 
+  const connectDb = () =>
+    run(async () => {
+      await api(`${base(owner)}/connections`, { body: { provider: "postgres", auth_method: "postgres_dsn", secret: dsn.trim() } });
+      setDsn("");
+    }, "Checking the database connection…");
+
   if (list.loading && !list.data) return <Loading label="Loading connection" />;
   const last = checks.data?.[0];
 
@@ -72,7 +81,26 @@ export function ConnectionPanel({ kind, owner }: { kind: Kind; owner: Owner }) {
       {list.error ? <ErrorState error={list.error} onRetry={list.reload} /> : null}
       {err ? <ErrorState error={err} /> : null}
       {!conn ? (
-        kind === "code" ? (
+        kind === "database" ? (
+          <>
+            <div className="row" style={{ gap: 12, marginBottom: 10 }}>
+              <LogoTile id="postgres" size={34} />
+              <div>
+                <h3 className="ct">Connect a Postgres database</h3>
+                <p className="cs">TRACE reads the structure only (tables, columns, keys, indexes) in a read-only session and never reads rows. Use a read-only role if you can.</p>
+              </div>
+            </div>
+            <div className="field">
+              <label className="lbl" htmlFor="pgdsn">Connection string</label>
+              <input id="pgdsn" className="input mono" type="password" autoComplete="off" spellCheck={false} placeholder="postgresql://user:password@host:5432/dbname" value={dsn} onChange={(e) => setDsn(e.target.value)} />
+              <div className="xs muted fhint">Stored encrypted. It is never shown again.</div>
+            </div>
+            <button className="btn pri" disabled={busy || dsn.trim().length < 12} onClick={connectDb}>
+              <Icon n="check" c="sm" />
+              Verify and connect
+            </button>
+          </>
+        ) : kind === "code" ? (
           <>
             <div className="row" style={{ gap: 12, marginBottom: 10 }}>
               <LogoTile id="github" size={34} />
@@ -81,9 +109,25 @@ export function ConnectionPanel({ kind, owner }: { kind: Kind; owner: Owner }) {
                 <p className="cs">You approve access on GitHub and choose which repositories TRACE may read. No password or token is typed here.</p>
               </div>
             </div>
-            <button className="btn pri" disabled={busy} onClick={connectGithub}>
+            {installs.data?.length ? (
+              <div style={{ marginBottom: 12 }}>
+                <div className="lbl">TRACE is already installed on GitHub for</div>
+                {installs.data.map((i) => (
+                  <div key={i.id} className="row" style={{ gap: 10, padding: "6px 0" }}>
+                    <span className="sm" style={{ flex: 1 }}>
+                      <b>{i.account || "account"}</b> · {i.repository_selection === "all" ? "all repositories" : "selected repositories"}
+                      {i.suspended ? " · suspended" : ""}
+                    </span>
+                    <button className="btn sm pri" disabled={busy || i.suspended} onClick={() => run(() => api("/connect/github/attach", { body: { installation_id: i.id, ...(owner.draftId ? { draft_id: owner.draftId } : { project_id: owner.projectId }) } }), "Checking the GitHub connection…")}>
+                      Use this
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            <button className={`btn ${installs.data?.length ? "" : "pri"}`} disabled={busy} onClick={connectGithub}>
               <Icon n="out" c="sm" />
-              Connect GitHub
+              {installs.data?.length ? "Install on another account or change access" : "Connect GitHub"}
             </button>
           </>
         ) : (
@@ -119,8 +163,9 @@ export function ConnectionPanel({ kind, owner }: { kind: Kind; owner: Owner }) {
             <div className="row" style={{ gap: 12 }}>
               <LogoTile id={conn.provider} size={34} />
               <div>
-                <h3 className="ct">{conn.provider === "github" ? "GitHub" : "Vercel"}</h3>
+                <h3 className="ct">{conn.provider === "github" ? "GitHub" : conn.provider === "postgres" ? "Postgres database" : "Vercel"}</h3>
                 <p className="cs">
+                  {conn.provider === "postgres" && conn.config.database ? `${conn.config.database} on ${conn.config.host} · ` : ""}
                   {conn.provider === "github" && conn.config.account ? `Account ${conn.config.account} · ` : ""}
                   {conn.provider === "vercel" && conn.config.username ? `User ${conn.config.username} · ` : ""}
                   last verified {when(conn.last_verified_at)}
@@ -160,7 +205,7 @@ export function ConnectionPanel({ kind, owner }: { kind: Kind; owner: Owner }) {
             {conn.stores_secret ? (
               <button className="btn sm" disabled={busy} onClick={() => setRotating((r) => !r)}>
                 <Icon n="key" c="sm" />
-                Replace token
+                {conn.provider === "postgres" ? "Replace connection string" : "Replace token"}
               </button>
             ) : null}
             <button

@@ -50,3 +50,9 @@ Topology pages are superseded (PRD D-10) and are not ported as routes.
   `src/lib/types.ts` until generated from `trace-api/docs/openapi.json`; `next build` was not run because another session's dev server owns `.next`.
   Another session also edits this repo (graph pages, `src/lib/api.ts` graph types); `src/lib/call.ts` wraps its `api()`.
 
+## 2026-10-17: Architecture tab (System map, Database) on real data
+- System map: built by `GET /projects/{id}/system-map` from configured structure (services, environments, log scope, repository mappings) and provider
+  metadata (deployments with commit SHA). Edges are labelled configured / provider metadata; unknown links are listed under "Not known yet", never drawn.
+- Database: schema metadata read from a Postgres the user connects on the Connectors tab (read-only session, no rows). It moves to graph-derived schema later.
+- Code graph (other session's `CodeGraph`) is kept as the middle view.
+

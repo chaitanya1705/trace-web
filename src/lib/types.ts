@@ -19,8 +19,8 @@ export type Connection = {
   id: string;
   project_id: string | null;
   draft_id: string | null;
-  provider: "github" | "vercel" | "generic";
-  kind: "code" | "hosting";
+  provider: "github" | "vercel" | "generic" | "postgres";
+  kind: "code" | "hosting" | "database";
   auth_method: string;
   status: string;
   config: Record<string, any>;

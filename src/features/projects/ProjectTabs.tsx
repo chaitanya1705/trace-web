@@ -19,6 +19,7 @@ export function ConnectorsTab({ p }: { p: Project }) {
       <p className="cs">Where this project runs and where its code lives. TRACE reads from both; it never writes to hosting.</p>
       <ConnectionPanel kind="hosting" owner={{ projectId: p.id }} />
       <ConnectionPanel kind="code" owner={{ projectId: p.id }} />
+      <ConnectionPanel kind="database" owner={{ projectId: p.id }} />
     </div>
   );
 }
