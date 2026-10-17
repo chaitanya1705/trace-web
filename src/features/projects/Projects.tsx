@@ -15,6 +15,7 @@ import { GraphExplorer } from "@/features/graph/GraphExplorer";
 import { ArchitectureTab } from "./Architecture";
 import { LogsTab } from "./LogsTab";
 import { ConnectorsTab, CodeTab, ScopeTab, TeamTab } from "./ProjectTabs";
+import { DeleteProjectButton } from "./DeleteProject";
 import { DetailShell } from "./DetailShell";
 import { NewProject } from "./NewProject";
 
@@ -137,6 +138,7 @@ function ProjectDetail({ pid, tab }: { pid: string; tab: string }) {
       title={p.name}
       lede={p.description || undefined}
       chips={<>{p.environments.map((e) => <EnvBadge key={e.id} e={e.key} />)}</>}
+      actions={<DeleteProjectButton p={p} />}
       facts={[["Readiness", <ReadinessBadges key="r" items={p.readiness} />]]}
       tabs={tabs}
       tab={cur}
