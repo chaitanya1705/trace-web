@@ -560,7 +560,7 @@ a{color:inherit}
 .pulse{position:relative}.pulse::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:1.5px solid currentColor;opacity:0;animation:ring 1.8s ease-out infinite}
 @keyframes ring{0%{opacity:.7;transform:scale(.6)}100%{opacity:0;transform:scale(1.8)}}
 .dot.r.pulse{color:var(--crit)}.dot.g.pulse{color:var(--good)}.dot.a.pulse{color:var(--warn)}.dot.v.pulse{color:var(--accent)}
-.card{border:1px solid var(--line);border-radius:14px;background:var(--bg);padding:18px 20px;min-width:0}
+.card{border:1px solid var(--line);border-radius:14px;background:var(--bg);padding:18px 20px;min-width:0;box-shadow:var(--sh1)}
 .card.flat{background:var(--bg2)}
 .card.pad0{padding:0;overflow:hidden}
 .ch{display:flex;align-items:center;gap:10px;justify-content:space-between;margin-bottom:12px}
@@ -1011,7 +1011,7 @@ a.btn{text-decoration:none}
 .sx-u{margin-top:8px}.sx-u .row{margin-bottom:4px}
 
 /* ===================== V12: polish + dense layer (app only) ===================== */
-:root{--page:#f3f5f6;--side:#fafbfb;--sh1:0 1px 2px rgba(16,24,32,.05);--sh2:0 1px 2px rgba(16,24,32,.05),0 6px 18px -10px rgba(16,24,32,.16);--glow:color-mix(in srgb,var(--accent) 9%,transparent);--k1:#2a78d6;--k2:var(--accent);--k3:#d9822b;--k4:#7c5cff;--k5:#d0453f;--k6:#1baf7a}
+:root{--page:#f3f5f6;--line:#d9dee2;--line2:#c5ccd2;--side:#fafbfb;--sh1:0 1px 2px rgba(16,24,32,.05);--sh2:0 1px 2px rgba(16,24,32,.05),0 6px 18px -10px rgba(16,24,32,.16);--glow:color-mix(in srgb,var(--accent) 9%,transparent);--k1:#2a78d6;--k2:var(--accent);--k3:#d9822b;--k4:#7c5cff;--k5:#d0453f;--k6:#1baf7a}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--page:#08090c;--side:#0c0d11;--bg:#111317;--bg2:#161920;--bg3:#1e2129;--line:#23262e;--line2:#2f333c;--sh1:inset 0 1px 0 rgba(255,255,255,.03);--sh2:inset 0 1px 0 rgba(255,255,255,.04),0 10px 28px -16px rgba(0,0,0,.8);--glow:color-mix(in srgb,var(--accent) 13%,transparent)}}
 :root[data-theme="dark"]{--page:#08090c;--side:#0c0d11;--bg:#111317;--bg2:#161920;--bg3:#1e2129;--line:#23262e;--line2:#2f333c;--sh1:inset 0 1px 0 rgba(255,255,255,.03);--sh2:inset 0 1px 0 rgba(255,255,255,.04),0 10px 28px -16px rgba(0,0,0,.8);--glow:color-mix(in srgb,var(--accent) 13%,transparent)}
 
