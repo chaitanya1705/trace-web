@@ -466,6 +466,7 @@ export function GraphExplorer({ projectId, startLabel }: { projectId: string; st
           </div>
         </div>
         <aside className="nx-side">
+          <div className="nx-scroll">
           {err ? <div className="callout warn sm" style={{ marginBottom: 10 }}>{err.message}{err.requestId !== "-" ? ` (request ${err.requestId})` : ""}</div> : null}
           {selNode ? (
             <NodePanel n={selNode} detail={detail} onExpand={(t, d) => expand(selNode.id, t, d)} onTrace={() => setPathFrom(selNode.id)} onDismiss={() => dismiss(selNode.id)}
@@ -495,18 +496,28 @@ export function GraphExplorer({ projectId, startLabel }: { projectId: string; st
                   </button>
                 ))}
               </div>
-              <hr className="hr" />
-              <div className="nx-h">Keeping Neo4j current</div>
-              <p className="xs muted" style={{ margin: "0 0 8px" }}>
-                Scope, connections, repositories, deployments, tickets and stored logs are projected into Neo4j automatically by the worker.
-                {sc.stored_events.pending ? ` ${sc.stored_events.pending} stored log event${sc.stored_events.pending === 1 ? " is" : "s are"} not in the graph yet.` : " Every stored log event is in the graph."}
-                {sc.stored_events.failed ? ` ${sc.stored_events.failed} could not be written.` : ""}
-              </p>
-              <button className="btn sm" disabled={busy} onClick={sync}><Icon n="refresh" c="sm" />Sync now</button>
-              <hr className="hr" />
-              <p className="xs muted" style={{ margin: 0 }}>Click a node to inspect it, double-click to expand, drag to pin. Use ⇢ on a selected node, then click another to trace how they connect.</p>
             </div>
           )}
+          </div>
+          {!selNode && !selRel ? (
+            <div className="nx-fixed">
+              <div className="row" style={{ justifyContent: "space-between", gap: 8 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div className="nx-h" style={{ margin: 0 }}>Keeping Neo4j current</div>
+                  <div className="xs muted" style={{ lineHeight: 1.35 }}>
+                    {sc.stored_events.pending ? `${sc.stored_events.pending} log event${sc.stored_events.pending === 1 ? "" : "s"} not in the graph yet` : "All stored logs are in the graph"}
+                    {sc.stored_events.failed ? ` · ${sc.stored_events.failed} failed` : ""}
+                  </div>
+                </div>
+                <button className="btn sm" disabled={busy} onClick={sync}><Icon n="refresh" c="sm" />Sync now</button>
+              </div>
+              <details className="nx-more">
+                <summary>How this works</summary>
+                <p>Scope, connections, repositories, deployments, tickets and stored logs are projected into Neo4j automatically by the worker.</p>
+                <p>Click a node to inspect it, double-click to expand, drag to pin. Use ⇢ on a selected node, then click another to trace how they connect.</p>
+              </details>
+            </div>
+          ) : null}
         </aside>
       </div>
     </div>
