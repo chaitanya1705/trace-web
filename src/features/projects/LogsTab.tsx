@@ -18,7 +18,7 @@ type Status = {
   drain: { connection_id: string; secret_configured: boolean; endpoint_url: string; last_batch_at: string | null } | null;
   last_capture: { id: string; status: string; stage: string | null; result_ref: { accepted?: number; duplicates?: number; read?: number; seconds?: number; listening_seconds?: number; note?: string; resources?: { provider_project_id: string; environment: string; deployment: string | null; outcome: string; read: number; accepted: number; duplicates: number }[] } | null; error: { message: string } | null; created_at: string } | null;
 };
-type LogRow = { id: string; event_time: string | null; ingested_at: string; level: string | null; source: string | null; service_hint: string | null; message: string; request_id: string | null; status_code: number | null; deployment_id: string | null; environment_key: string | null; extra: Record<string, any>; graph_status: string; provider?: string };
+type LogRow = { id: string; event_time: string | null; ingested_at: string; level: string | null; source: string | null; trust_class: string; service_hint: string | null; message: string; request_id: string | null; status_code: number | null; deployment_id: string | null; environment_key: string | null; extra: Record<string, any>; graph_status: string; provider?: string };
 
 const when = (iso?: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "medium" }) : "unknown time");
 const LEVEL: Record<string, string> = { error: "crit", fatal: "crit", warning: "warn", info: "mute" };
@@ -77,6 +77,8 @@ export function LogsTab({ p }: { p: Project }) {
   return (
     <div className="stack">
       <p className="cs">Logs TRACE has stored for this project. Search uses TRACE filters on stored events, not provider query syntax. Collecting from the source is a separate, explicit step.</p>
+
+      <p className="cs">Browser observations are labelled untrusted and are kept separate from backend runtime evidence.</p>
 
       <AppLogSource p={p} />
 
@@ -209,7 +211,7 @@ export function LogsTab({ p }: { p: Project }) {
                         <td className="mono xs">{r.event_time ? new Date(r.event_time).toLocaleTimeString() : <span className="muted">unknown</span>}<div className="xs muted">{r.event_time ? new Date(r.event_time).toLocaleDateString() : ""}</div></td>
                         <td>{r.level ? <Badge c={LEVEL[r.level] || "mute"}>{r.level}</Badge> : <span className="muted xs">—</span>}</td>
                         <td className="sm">{r.environment_key || <span className="muted">unmapped</span>}</td>
-                        <td><span className="mono xs" style={{ display: "block", maxWidth: 560, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.message}</span><div className="xs muted">{r.service_hint}{r.status_code ? ` · HTTP ${r.status_code}` : ""}{r.provider ? ` · via ${r.provider === "app_push" ? "app" : r.provider === "vercel" ? "Vercel" : r.provider}` : ""}</div></td>
+                        <td><span className="mono xs" style={{ display: "block", maxWidth: 560, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.message}</span><div className="xs muted">{r.source === "browser" ? <><Badge c="warn">Untrusted browser observation</Badge>{" · "}{r.service_hint ? "client-reported " : ""}</> : null}{r.service_hint}{r.status_code ? ` · ${r.source === "browser" ? "client-reported HTTP " : "HTTP "}${r.status_code}` : ""}{r.provider ? ` · via ${r.provider === "app_push" ? "app" : r.provider === "vercel" ? "Vercel" : r.provider}` : ""}</div></td>
                         <td className="mono xs">{r.request_id ? r.request_id.slice(0, 8) : ""}</td>
                       </tr>
                       {sel === r.id ? (
@@ -217,9 +219,10 @@ export function LogsTab({ p }: { p: Project }) {
                           <td colSpan={5} style={{ background: "var(--bg2)" }}>
                             <pre className="tqp" style={{ whiteSpace: "pre-wrap", margin: 0 }}>{r.message}</pre>
                             <div className="xs muted mono" style={{ marginTop: 6 }}>
-                              {r.deployment_id ? `deployment ${r.deployment_id} · ` : ""}{r.source ? `source ${r.source} · ` : ""}received {when(r.ingested_at)}
-                              {r.extra?.source_revision ? ` · revision ${String(r.extra.source_revision).slice(0, 12)}` : ""}
+                              {r.deployment_id ? `${r.source === "browser" ? "client-reported deployment " : "deployment "}${r.deployment_id} · ` : ""}{r.source ? `source ${r.source} · ` : ""}{r.trust_class === "untrusted_browser" ? "trust untrusted_browser · " : ""}received {when(r.ingested_at)}
+                              {r.extra?.source_revision ? ` · ${r.source === "browser" ? "client-reported revision " : "revision "}${String(r.extra.source_revision).slice(0, 12)}` : ""}
                               {r.request_id ? ` · request ${r.request_id}` : ""}
+                              {r.extra?.client_reported_related_request_id ? ` · client-reported related request ${String(r.extra.client_reported_related_request_id)}` : ""}
                             </div>
                             {Object.keys(r.extra || {}).length ? <pre className="tqp xs" style={{ marginTop: 6 }}>{JSON.stringify(r.extra, null, 2)}</pre> : null}
                           </td>
