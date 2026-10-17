@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { call as api } from "@/lib/call";
 import { ApiError } from "@/lib/api";
 import { invalidate, useApi } from "@/lib/useApi";
@@ -7,7 +7,7 @@ import { toast } from "@/lib/toast";
 import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
 import { Empty, ErrorState, Loading } from "@/components/ui/States";
-import { CodeGraph } from "./CodeGraph";
+import { GraphExplorer } from "@/features/graph/GraphExplorer";
 
 /* ------------------------------------------------------------------ system map */
 type MapNode = { id: string; kind: string; label: string; sub?: string | null; status?: string | null };
@@ -270,7 +270,7 @@ export function ArchitectureTab({ projectId }: { projectId: string }) {
         ))}
       </div>
       {view === "map" ? <SystemMapView pid={projectId} /> : null}
-      {view === "code" ? <CodeGraph projectId={projectId} /> : null}
+      {view === "code" ? <Suspense fallback={<Loading />}><GraphExplorer projectId={projectId} startLabel="CodeSymbol" /></Suspense> : null}
       {view === "db" ? <DatabaseView pid={projectId} /> : null}
     </div>
   );

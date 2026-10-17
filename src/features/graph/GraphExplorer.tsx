@@ -70,7 +70,7 @@ const fmt = (v: unknown): string => (v === null || v === undefined ? "null" : ty
  * relationship its type and direction. Behaves like Neo4j Browser: drag, zoom, click to inspect, double-click to expand,
  * and each view shows the Cypher that returns the same graph in Neo4j Browser or Aura.
  */
-export function GraphExplorer({ projectId }: { projectId: string }) {
+export function GraphExplorer({ projectId, startLabel }: { projectId: string; startLabel?: string }) {
   const params = useSearchParams();
   const schema = useApi<Schema>(`/projects/${projectId}/graph/schema`);
   /* the canvas only exists once the schema has loaded (until then the loader is shown), so the effects below wait for it */
@@ -363,8 +363,9 @@ export function GraphExplorer({ projectId }: { projectId: string }) {
       load(`/projects/${projectId}/graph/nodes/${encodeURIComponent(f)}/neighbors?limit=60`, "Focus").then((d) => {
         if (d) setTimeout(() => setSel({ kind: "node", id: f }), 50);
       });
-    } else load(`/projects/${projectId}/graph/explore?view=trace&limit=150`, "Trace overview");
-  }, [load, params, projectId, ready]);
+    } else if (startLabel) load(`/projects/${projectId}/graph/explore?view=label&label=${startLabel}&limit=200`, `Label ${startLabel}`);
+    else load(`/projects/${projectId}/graph/explore?view=trace&limit=150`, "Trace overview");
+  }, [load, params, projectId, ready, startLabel]);
 
   /* node detail */
   useEffect(() => {
