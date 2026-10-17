@@ -1,11 +1,12 @@
 # trace-web
 
 Web frontend for **TRACE**, the incident investigation and change-impact workspace. This repository is a
-Next.js port of the HTML prototype (`Plan's And Artifacts/Artifacts/index.html`), built to the TRACE plans in
-`Plan's And Artifacts/Plans/TRACE/` (PRD, architecture, ontology, tasks).
+Next.js port of the HTML prototype, built to the TRACE plans in `TRACE/` (PRD, architecture, ontology, tasks) as amended by
+`../trace-api/docs/PLAN.md`.
 
-> Everything shown in the workspace is **sample data** (`src/data`). The backend, Supabase Auth, Neo4j and the
-> provider adapters are separate work (see `PORTING.md` and the plan's tasks T-002 … T-024).
+> The workspace reads the real `trace-api` (see `src/lib/call.ts`, `src/lib/useApi.tsx`). There is no sample data in the workspace: screens whose
+> API does not exist yet show a "not available yet" state. The public landing page has illustrated product screens that are labelled as sample data.
+> See `PORTING.md` for decisions and `task.md` for status.
 
 ## Run it
 
@@ -16,38 +17,36 @@ npm run build && npm start
 npm run lint       # type-check (tsc --noEmit)
 ```
 
-Open `/`, choose **Sign in**, and use any valid email plus an 8+ character password. The session is a demo
-cookie (`/api/demo-session`, gated by `src/proxy.ts`); it is a stand-in for Supabase Auth and is flagged as such in code.
+Open `/` and choose **Open workspace**. There is no login: the API runs with `AUTH_MODE=off` (`NEXT_PUBLIC_API_URL`, default
+`http://localhost:8000`). Start it from `trace-api` with `python -m app.serve`, and the worker with `python -m app.worker_main` (connection checks, graph
+builds and log capture run there).
 
 ## Scope
 
-- **Connectors: GitHub (code), Vercel (where it runs) and Supabase (database/backend add-on, logs only).** Everything else in the prototype catalog was removed.
-- Navigation: Home · Tickets · Investigate · Changes & PRs · Observability · Projects; Settings in the toolbar.
+- **Connectors: GitHub (code) and Vercel (hosting).** Plus an app log source and an optional read-only Postgres schema connection. Settings is dropped for now.
+- Navigation: Home, Tickets, Investigate, Changes & PRs, Observability, Projects.
 - Real routes, no hash routing:
 
 | Route | Screen |
 |---|---|
 | `/` | Landing (pinned hero, live product preview, capabilities, integrations) |
-| `/login`, `/signup` | Authentication |
-| `/home` | Needs-you queue, active runs, projects, recent changes |
+| `/home` | Real ticket and project counts, needs-you queue; runs and changes show "not available yet" |
 | `/tickets` | Org-wide inbox; assign a project, then **Investigate** (assignment never starts a run) |
-| `/investigate`, `/investigate/p/<project>`, `/investigate/<id>` | Project list, project incidents, streamed run with impact / timeline / hypotheses / evidence |
-| `/changes`, `/changes/<id>` | Proposed fixes, diff, blast radius, approvals, freeze windows, draft PR |
-| `/observability`, `/observability/analytics`, `/observability/<id>` | Post-merge recovery, analytics |
-| `/projects`, `/projects/<id>/<tab>`, `/projects/new/<step>` | Connectors, code import + graph, log scope, architecture (map / code graph / database), logs, team, wizard |
-| `/settings/<section>` | Environment rules, approvers, credentials, members, roles, audit, preferences, notifications |
+| `/investigate`, `/investigate/<project>/<run>` | Run list, step trace, evidence, ask a question about a run |
+| `/changes`, `/changes/<id>` | Not available yet (honest placeholder) |
+| `/observability`, `/observability/<id>` | Not available yet (honest placeholder) |
+| `/projects`, `/projects/<id>/<tab>`, `/projects/new/<step>` | Connectors, code (repositories, services, mappings, graph), log scope, architecture (map / code graph / database), logs, team, setup wizard (Basics, Hosting, Log scope, Code, Review) |
 
-The TRACE Bot panel (chat, history, streamed cited answers, PR-update cards) and the command palette (Ctrl K) are
-available on every workspace screen.
+The command palette (Ctrl K) searches real tickets and projects. The TRACE Bot panel is a placeholder until the bot is built.
 
 ## Layout
 
 ```
-src/app/            routes ((public), (auth), (workspace)), globals.css (prototype design system, verbatim)
-src/components/     ui/ charts/ graph/ shell/ bot/ evidence/ auth/
-src/features/       home tickets investigate changes observability projects settings landing
-src/data/           typed sample fixtures (labelled; never production data)
-src/lib/            store, state, bot engine, theme, utilities
+src/app/            routes ((public), (workspace)), globals.css (prototype design system, verbatim), responsive.css (layout fixes)
+src/components/     ui/ charts/ shell/ bot/
+src/features/       home tickets investigate projects landing
+src/data/           brand logos only (no sample data)
+src/lib/            API client (api, call, useApi), UI state, theme, utilities
 ```
 
 ## Responsive behaviour

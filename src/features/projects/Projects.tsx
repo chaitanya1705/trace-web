@@ -1,7 +1,9 @@
 "use client";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { Project, Readiness } from "@/lib/types";
-import { useApi } from "@/lib/useApi";
+import { call as api } from "@/lib/call";
+import type { Draft, Project, Readiness } from "@/lib/types";
+import { invalidate, useApi } from "@/lib/useApi";
 import { Badge, Chip, EnvBadge } from "@/components/ui/Badge";
 import { DataTable } from "@/components/ui/DataTable";
 import { Icon } from "@/components/ui/Icon";
@@ -29,6 +31,39 @@ export function ReadinessBadges({ items }: { items: Readiness[] }) {
   );
 }
 
+const STAGE_STEP: Array<[stage: string, step: string, label: string]> = [
+  ["basics", "basics", "Basics"],
+  ["hosting", "hosting", "Hosting"],
+  ["log_scope", "scope", "Log scope"],
+  ["code", "code", "Code"],
+  ["review", "review", "Review"],
+];
+
+/** Setups that were started and not finished. They are saved server-side, so a reload or another day resumes them. */
+function Unfinished() {
+  const res = useApi<Draft[]>("/project-drafts");
+  if (!res.data?.length) return res.error ? <ErrorState error={res.error} onRetry={res.reload} /> : null;
+  return (
+    <div className="card pad0" style={{ marginBottom: 16 }}>
+      <div className="hh"><div><h3 className="ct">Unfinished setups</h3><p className="cs">Saved as you went. Resume where you stopped.</p></div></div>
+      {res.data.filter((d) => !d.project_id).map((d) => {
+        const next = STAGE_STEP.find(([st]) => (d.stages[st] || "todo") === "todo") || STAGE_STEP[4];
+        const skipped = STAGE_STEP.filter(([st]) => d.stages[st] === "skipped").map((x) => x[2]);
+        return (
+          <div key={d.id} className="hrow">
+            <span className="sx-b">
+              <span className="sx-t">{d.data.basics?.name || "Untitled project"}</span>
+              <span className="sx-s">Next: {next[2]}{skipped.length ? ` · skipped: ${skipped.join(", ")}` : ""}</span>
+            </span>
+            <Link className="btn sm pri" href={`/projects/new/${next[1]}?draft=${d.id}`}>Resume</Link>
+            <button className="btn sm ghost" onClick={async () => { if (confirm("Discard this setup? Connections made for it are removed.")) { await api(`/project-drafts/${d.id}/discard`, { body: {} }).catch(() => {}); invalidate(); } }}>Discard</button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function ProjectList() {
   const router = useRouter();
   const res = useApi<Project[]>("/projects?limit=100");
@@ -47,6 +82,7 @@ function ProjectList() {
         chips={res.data ? <Chip d="v">{total ?? res.data.length} project{(total ?? res.data.length) === 1 ? "" : "s"}</Chip> : null}
         right={newBtn}
       />
+      <Unfinished />
       {res.error ? <ErrorState error={res.error} onRetry={res.reload} /> : null}
       {res.loading && !res.data ? <Loading label="Loading projects" /> : null}
       {res.data && !res.data.length ? (

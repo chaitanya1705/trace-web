@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { toggleBot, closeBot } from "@/lib/bot";
 import { openLayer } from "@/lib/layer";
 import { setS } from "@/lib/state";
-import { useApi } from "@/lib/useApi";
+import { invalidate, useApi } from "@/lib/useApi";
 import { useStore } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
 import { IconSprite } from "@/components/ui/IconSprite";
@@ -30,6 +30,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [drawer, setDrawer] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [dark, setDark] = useState(false);
+  /* at <=900px the sidebar is an off-canvas drawer: while it is closed it must not be reachable by keyboard or screen reader */
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => {
+    const mq = matchMedia("(max-width:900px)");
+    const on = () => setNarrow(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
 
   /* restore the saved rail state (desktop only) and theme icon */
   useEffect(() => {
@@ -70,6 +79,19 @@ export function AppShell({ children }: { children: ReactNode }) {
       });
   }, []);
 
+  /* opening the drawer moves focus into it; Escape closes it and returns focus to the button that opened it */
+  useEffect(() => {
+    if (!drawer) return;
+    document.querySelector<HTMLElement>("#nav a")?.focus();
+    const h = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setDrawer(false);
+      document.getElementById("sideOpen")?.focus();
+    };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [drawer]);
+
   const seg = pathname.split("/")[1] || "home";
   const active = seg;
   /* real counts only: tickets that still need a project. Other badges stay hidden until their APIs exist. */
@@ -87,7 +109,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div id="app" className={collapsed ? "collapsed" : undefined}>
       <IconSprite />
       <a className="skip" href="#view">Skip to content</a>
-      <aside className={`side${drawer ? " on" : ""}`} id="side">
+      {narrow && drawer ? <div className="side-scrim" onClick={() => setDrawer(false)} aria-hidden="true" /> : null}
+      <aside className={`side${drawer ? " on" : ""}`} id="side" inert={narrow && !drawer}>
         <div className="brand">
           <button
             type="button"
@@ -135,14 +158,16 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
       <div className="main" id="mainEl">
         <header className="top">
-          <button className="btn icon ghost" id="sideOpen" onClick={sideToggle} aria-label="Open sidebar">
+          <button className="btn icon ghost" id="sideOpen" onClick={sideToggle} aria-label="Open sidebar" aria-expanded={drawer} aria-controls="side">
             <Icon n="panel" />
           </button>
           <Crumbs />
           <ProjectSwitch
             onChange={(v) => {
+              /* a scope change drops every fetched result so nothing from the previous scope stays on screen */
               setS({ proj: v });
               resetTableSizes();
+              invalidate();
             }}
           />
           <span className="sp" />
@@ -157,7 +182,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             }}
           >
             <Icon n="search" c="sm" />
-            <span>Search incidents, services, changes</span>
+            <span>Search tickets and projects</span>
             <kbd>Ctrl K</kbd>
           </div>
           <button className="btn" id="askBtn" onClick={toggleBot}>

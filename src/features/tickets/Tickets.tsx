@@ -1,4 +1,5 @@
 "use client";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api";
 import { call as api } from "@/lib/call";
@@ -24,8 +25,25 @@ const ago = (iso: string) => {
 const evidenceNote = (t: Ticket) =>
   t.evidence_sync === "pending" ? "Evidence received, not in the graph yet" : t.evidence_sync === "synced" ? "Evidence in the graph" : t.evidence_sync === "failed" ? "Evidence sync failed" : "";
 
+/** Investigate is always an explicit click. One active run per ticket: the API answers 409 and we open the running one. */
+async function startInvestigation(t: Pick<Ticket, "id" | "display_id">, go: (href: string) => void) {
+  try {
+    const r = await api<{ run_id: string; project_id: string }>(`/tickets/${t.id}/investigate`, { method: "POST", body: {} });
+    closeLayer();
+    toast(`Investigating ${t.display_id}`);
+    go(`/investigate/${r.data.project_id}/${r.data.run_id}`);
+  } catch (e) {
+    const er = e as ApiError;
+    if (er.code === "run_active") {
+      toast("An investigation is already running for this ticket");
+      go("/investigate");
+    } else toast(er.message);
+  }
+}
+
 /** Tickets: every incident that comes in. Assign a project, then Investigate (when the investigator exists). */
 export function Tickets() {
+  const router = useRouter();
   const [view, setView] = useState<View>("open");
   const [q, setQ] = useState("");
   const [dq, setDq] = useState("");
@@ -175,7 +193,7 @@ export function Tickets() {
                       <td><Badge c={t.status === "open" ? "warn" : "good"}>{t.status === "open" ? "Open" : t.status === "resolved" ? "Resolved" : "Closed"}</Badge></td>
                       <td><span className="sm ink2 tnum">{ago(t.opened_at)}</span></td>
                       <td onClick={(e) => e.stopPropagation()}>
-                        <button className="btn sm pri" disabled={!t.investigate.available} title={t.investigate.reason || "Start an investigation"}>
+                        <button className="btn sm pri" disabled={!t.investigate.available} title={t.investigate.reason || "Start an investigation"} onClick={() => void startInvestigation(t, router.push)}>
                           <Icon n="flask" c="sm" />
                           Investigate
                         </button>
@@ -245,6 +263,7 @@ function NewTicket({ projects }: { projects: Project[] }) {
 }
 
 function TicketDetail({ id, projects }: { id: string; projects: Project[] }) {
+  const router = useRouter();
   const res = useApi<Ticket & { revisions: Array<{ revision_number: number; created_at: string }>; has_payload: boolean }>(`/tickets/${id}`);
   const t = res.data;
   const setStatus = async (status: string) => {
@@ -298,6 +317,7 @@ function TicketDetail({ id, projects }: { id: string; projects: Project[] }) {
       <div className="mf">
         <span />
         <span className="row">
+          {t ? <button className="btn pri" disabled={!t.investigate.available} title={t.investigate.reason || "Start an investigation"} onClick={() => void startInvestigation(t, router.push)}><Icon n="flask" c="sm" />Investigate</button> : null}
           {t && t.status === "open" ? <button className="btn" onClick={() => setStatus("resolved")}>Mark resolved</button> : null}
           {t && t.status !== "open" ? <button className="btn" onClick={() => setStatus("open")}>Reopen</button> : null}
           <button className="btn" onClick={closeLayer}>Close</button>
