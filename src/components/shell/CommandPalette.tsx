@@ -1,40 +1,49 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { FIXES } from "@/data/fixes";
-import { INC } from "@/data/incident-detail";
-import { PROJ3 } from "@/data/projects";
-import { INC_ALL } from "@/data/tickets";
+import { useEffect, useRef, useState } from "react";
+import { call as api } from "@/lib/call";
 import { closeLayer } from "@/lib/layer";
+import type { Project, Ticket } from "@/lib/types";
 import { Icon } from "@/components/ui/Icon";
 import { NAV7 } from "./nav";
 
 type Item = { l: string; i: string; go: string; k: string };
 
-/** Ctrl K palette. Searches pages, tickets, investigations, changes and projects; every result opens a stable route. */
+/** Ctrl K palette: pages plus a live search of the caller's authorized projects and tickets. Every result opens a stable route. */
 export function CommandPalette() {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(0);
+  const [found, setFound] = useState<Item[]>([]);
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => input.current?.focus(), []);
 
-  const items = useMemo<Item[]>(
-    () => [
-      ...NAV7.flatMap((g) => g[1]).map(([id, l, i]) => ({ l, i, go: "/" + id, k: "Go to" })),
-      { l: "Settings", i: "gear", go: "/settings/rules", k: "Go to" },
-      ...Object.values(INC).map((x: any) => ({ l: `${x.id} · ${x.title}`, i: "flask", go: "/investigate/" + x.id, k: "Investigation" })),
-      ...INC_ALL.slice(0, 40).map((x: any) => ({ l: `${x.id} · ${x.title}`, i: "alert", go: x.project && INC[x.id] ? "/investigate/" + x.id : "/tickets", k: "Ticket" })),
-      ...FIXES.slice(0, 12).map((f: any) => ({ l: `${f.id} · ${f.title}`, i: "commit", go: "/changes/" + f.id, k: "Change" })),
-      ...PROJ3.map((p: any) => ({ l: p.id, i: "db", go: "/projects/" + p.id + "/connectors", k: "Project" })),
-      ...PROJ3.flatMap((p: any) => [
-        { l: `${p.id} · GitHub connection`, i: "plus", go: `/projects/${p.id}/connectors/code`, k: "Connector" },
-        { l: `${p.id} · Vercel connection`, i: "plus", go: `/projects/${p.id}/connectors/cloud`, k: "Connector" },
-      ]),
-    ],
-    [],
-  );
-  const shown = items.filter((x) => x.l.toLowerCase().includes(q.toLowerCase())).slice(0, 9);
+  useEffect(() => {
+    const term = q.trim();
+    if (!term) {
+      setFound([]);
+      return;
+    }
+    let dead = false;
+    const t = setTimeout(async () => {
+      const [p, t2] = await Promise.allSettled([
+        api<Project[]>(`/projects?q=${encodeURIComponent(term)}&limit=5`),
+        api<Ticket[]>(`/tickets?view=all&q=${encodeURIComponent(term)}&limit=5`),
+      ]);
+      if (dead) return;
+      setFound([
+        ...(p.status === "fulfilled" ? p.value.data.map((x) => ({ l: x.name, i: "db", go: `/projects/${x.id}/connectors`, k: "Project" })) : []),
+        ...(t2.status === "fulfilled" ? t2.value.data.map((x) => ({ l: `${x.display_id} · ${x.title}`, i: "alert", go: "/tickets", k: "Ticket" })) : []),
+      ]);
+    }, 200);
+    return () => {
+      dead = true;
+      clearTimeout(t);
+    };
+  }, [q]);
+
+  const pages: Item[] = NAV7.flatMap((g) => g[1]).map(([id, l, i]) => ({ l, i, go: "/" + id, k: "Go to" }));
+  const shown = [...pages.filter((x) => x.l.toLowerCase().includes(q.toLowerCase())), ...found].slice(0, 10);
   const pick = (x?: Item) => {
     if (!x) return;
     closeLayer();
@@ -46,7 +55,7 @@ export function CommandPalette() {
       <div className="cmd" role="dialog" aria-modal="true" aria-label="Command palette">
         <input
           ref={input}
-          placeholder="Search tickets, investigations, changes, projects"
+          placeholder="Search tickets and projects"
           autoComplete="off"
           value={q}
           onChange={(e) => {

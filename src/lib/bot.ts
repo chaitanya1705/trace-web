@@ -1,12 +1,11 @@
 "use client";
 import { notify } from "./store";
 
-/** Open/closed flag of the TRACE Bot side panel so any screen can open it ("Ask about this"). */
-export const botUi = { open: false, focusTick: 0 };
+/** TRACE Bot panel open/closed state. The bot itself is not built yet (needs the investigator), so there is no chat content here. */
+export const botUi = { open: false };
 
 export const openBot = () => {
   botUi.open = true;
-  botUi.focusTick++;
   notify();
 };
 export const closeBot = () => {

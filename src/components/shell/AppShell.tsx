@@ -2,15 +2,11 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { FIXES, OBS } from "@/data/fixes";
-import { TRACE_STEPS } from "@/data/steps";
-import { INC_ALL } from "@/data/tickets";
 import { toggleBot, closeBot } from "@/lib/bot";
-import { closeLayer, openLayer } from "@/lib/layer";
-import { INC } from "@/data/incident-detail";
-import { S, USAGE, inProj, setS } from "@/lib/state";
+import { openLayer } from "@/lib/layer";
+import { setS } from "@/lib/state";
+import { useApi } from "@/lib/useApi";
 import { useStore } from "@/lib/store";
-import { toast } from "@/lib/toast";
 import { Icon } from "@/components/ui/Icon";
 import { IconSprite } from "@/components/ui/IconSprite";
 import { resetTableSizes } from "@/components/ui/DataTable";
@@ -19,16 +15,15 @@ import { CommandPalette } from "./CommandPalette";
 import { Crumbs } from "./Crumbs";
 import { LayerHost, Toaster } from "./Overlays";
 import { ProjectSwitch } from "./ProjectSwitch";
-import { SideExtra } from "./SideExtra";
 import { NAV7 } from "./nav";
+import { SessionProvider, type SessionUser } from "@/lib/session";
 import { applyTheme, themeIsDark, toggleTheme } from "@/lib/theme";
 
-export type SessionUser = { name: string; sub: string };
 
 const initials = (name: string) =>
   name.split(/[\s-]+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase() || "CN";
 
-export function AppShell({ user, children }: { user: SessionUser; children: ReactNode }) {
+export function AppShell({ children }: { children: ReactNode }) {
   useStore();
   const pathname = usePathname();
   const router = useRouter();
@@ -77,23 +72,21 @@ export function AppShell({ user, children }: { user: SessionUser; children: Reac
 
   const seg = pathname.split("/")[1] || "home";
   const active = seg;
-  const un = INC_ALL.filter((r: any) => !r.project).length;
-  const counts: Record<string, number> = {
-    tickets: un,
-    investigate: Object.values(TRACE_STEPS).filter((st) => st.some((s) => s.state === "waiting")).length,
-    changes: FIXES.filter((f) => f.status === "Proposed" && inProj(f)).length,
-    observability: OBS.filter((o) => o.status === "Watching" && inProj(o)).length,
+  /* real counts only: tickets that still need a project. Other badges stay hidden until their APIs exist. */
+  /* no login: /me opens (and on first use creates) the workspace and says who is acting */
+  const me = useApi<{ user: { email: string | null; display_name: string | null }; memberships: Array<{ organization_name: string }> }>("/me");
+  const user: SessionUser = {
+    name: me.data?.user.display_name || me.data?.user.email || (me.error ? "API unreachable" : "Loading…"),
+    sub: me.data?.memberships[0]?.organization_name || (me.error ? "Start the backend" : ""),
   };
-
-  const signOut = async () => {
-    await fetch("/api/demo-session", { method: "DELETE" });
-    toast("Signed out");
-    router.push("/login");
-  };
+  const need = useApi<unknown[]>("/tickets?view=need_project&limit=1");
+  const counts: Record<string, number> = { tickets: Number(need.meta?.coverage?.counts?.need_project || 0) };
 
   return (
+    <SessionProvider value={user}>
     <div id="app" className={collapsed ? "collapsed" : undefined}>
       <IconSprite />
+      <a className="skip" href="#view">Skip to content</a>
       <aside className={`side${drawer ? " on" : ""}`} id="side">
         <div className="brand">
           <button
@@ -127,23 +120,14 @@ export function AppShell({ user, children }: { user: SessionUser; children: Reac
             </div>
           ))}
         </nav>
-        <SideExtra />
         <div className="side-foot">
-          <div className="cov">
-            <div className="row" style={{ justifyContent: "space-between" }}>
-              <b>Today&apos;s usage</b>
-              <span className="xs muted">resets 00:00 UTC</span>
-            </div>
-            <UsageBar label="Log data scanned" value={`${USAGE.gb} of ${USAGE.gbMax} GB`} pct={Math.round((USAGE.gb / USAGE.gbMax) * 100)} />
-            <UsageBar label="Tool calls" value={`${USAGE.calls} of ${USAGE.callsMax}`} pct={Math.round((USAGE.calls / USAGE.callsMax) * 100)} />
-          </div>
           <div className="me">
             <span className="av">{initials(user.name)}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div className="sm" style={{ fontWeight: 500 }}>{user.name}</div>
               <small>{user.sub}</small>
             </div>
-            <button className="btn icon ghost sm" onClick={signOut} aria-label="Sign out" title="Sign out">
+            <button className="btn icon ghost sm" onClick={() => router.push("/")} aria-label="Leave workspace" title="Leave workspace">
               <Icon n="out" c="sm" />
             </button>
           </div>
@@ -159,8 +143,6 @@ export function AppShell({ user, children }: { user: SessionUser; children: Reac
             onChange={(v) => {
               setS({ proj: v });
               resetTableSizes();
-              const p = pathname.split("/");
-              if (p[1] === "investigate" && !INC[p[2]]) router.push(v === "All" ? "/investigate" : "/investigate/p/" + v);
             }}
           />
           <span className="sp" />
@@ -190,31 +172,13 @@ export function AppShell({ user, children }: { user: SessionUser; children: Reac
           >
             <Icon n={dark ? "sun" : "moon"} />
           </button>
-          <Link className={`btn icon ghost${seg === "settings" ? " on" : ""}`} href="/settings/rules" id="setBtn" aria-label="Settings" title="Settings">
-            <Icon n="gear" />
-          </Link>
         </header>
-        <div id="view">{children}</div>
+        <div id="view" tabIndex={-1}>{children}</div>
       </div>
       <BotPanel />
       <LayerHost />
       <Toaster />
     </div>
+    </SessionProvider>
   );
 }
-
-function UsageBar({ label, value, pct }: { label: string; value: string; pct: number }) {
-  return (
-    <div className="sx-u">
-      <div className="row xs" style={{ justifyContent: "space-between" }}>
-        <span className="ink2">{label}</span>
-        <span className="tnum">{value}</span>
-      </div>
-      <div className="meter">
-        <i style={{ width: pct + "%", transition: "none", background: pct > 80 ? "var(--warn)" : "var(--accent)" }} />
-      </div>
-    </div>
-  );
-}
-
-export { closeLayer };

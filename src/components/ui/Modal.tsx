@@ -31,7 +31,14 @@ export function Modal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className={className} role="dialog" aria-modal="true" aria-label={label} ref={ref} style={width ? { width } : undefined}>
+      <div className={className} onKeyDown={(e) => {
+          if (e.key !== "Tab" || !ref.current) return;
+          const f = Array.from(ref.current.querySelectorAll<HTMLElement>("a[href],button:not([disabled]),input:not([disabled]),select,textarea,[tabindex]:not([tabindex='-1'])"));
+          if (!f.length) return;
+          const first = f[0], last = f[f.length - 1];
+          if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+          else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+        }} role="dialog" aria-modal="true" aria-label={label} ref={ref} style={width ? { width } : undefined}>
         {children}
       </div>
     </div>
