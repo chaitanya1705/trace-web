@@ -9,6 +9,9 @@ import { Icon } from "@/components/ui/Icon";
 import { Kpis } from "@/components/ui/Kpis";
 import { ReadinessBadges } from "@/features/projects/Projects";
 import { Empty, ErrorState, Loading } from "@/components/ui/States";
+import { STEP_TITLE, ago, type RunRow } from "@/features/investigate/types";
+
+type ChangeRow = { id: string; display_id: string; project_id: string; project_name: string; title: string; risk: string; status: string; updated_at: string };
 
 /** Home: only what the backend can honestly report today (tickets and projects). No sample numbers. */
 export function Home() {
@@ -16,6 +19,8 @@ export function Home() {
   const me = useApi<{ user: { email: string | null; display_name: string | null } }>("/me");
   const tickets = useApi<Ticket[]>("/tickets?view=need_project&limit=5");
   const projects = useApi<Project[]>("/projects?limit=100");
+  const runs = useApi<RunRow[]>("/investigations", (d) => (d.some((r) => r.status === "running" || r.status === "queued") ? 3000 : false));
+  const changes = useApi<ChangeRow[]>("/changes");
   const counts = tickets.meta?.coverage?.counts as { need_project: number; open: number; resolved: number; all: number } | undefined;
   const name = (me.data?.user.display_name || me.data?.user.email || "").split(/[ @]/)[0];
   const todo = tickets.data || [];
@@ -40,6 +45,8 @@ export function Home() {
           ["Open tickets", counts?.open ?? "–", ""],
           ["Need a project", counts?.need_project ?? "–", "assign, then investigate"],
           ["Projects", projects.meta?.coverage?.total_authorized ?? projects.data?.length ?? "–", ""],
+          ["Investigations", runs.data?.length ?? "–", `${(runs.data || []).filter((r) => r.status === "running" || r.status === "queued").length} running`],
+          ["Changes", changes.data?.length ?? "–", changes.error ? "not available" : "proposed fixes"],
         ]}
       />
       <div className="homegrid">
@@ -60,8 +67,16 @@ export function Home() {
             {tickets.data && !todo.length ? <p className="sm muted" style={{ padding: "14px 16px", margin: 0 }}>You&apos;re all caught up.</p> : null}
           </div>
           <div className="card pad0">
-            <div className="hh"><div><h3 className="ct">Active investigations</h3></div></div>
-            <p className="sm muted" style={{ padding: "14px 16px", margin: 0 }}>Investigations are not available yet.</p>
+            <div className="hh"><div><h3 className="ct">Investigations</h3><p className="cs">Running first, then the latest</p></div><Link className="link sm" href="/investigate">All</Link></div>
+            {runs.loading && !runs.data ? <div style={{ padding: 16 }}><Loading /></div> : null}
+            {runs.data && !runs.data.length ? <p className="sm muted" style={{ padding: "14px 16px", margin: 0 }}>No investigations yet. Open a ticket and choose Investigate.</p> : null}
+            {[...(runs.data || [])].sort((x, y) => Number(y.status === "running" || y.status === "queued") - Number(x.status === "running" || x.status === "queued")).slice(0, 5).map((r) => (
+              <Link key={r.id} className="hrow" href={`/investigate/${r.project_id}/${r.control_run_id}`}>
+                <span className="sx-ic r"><Icon n="flask" c="sm" /></span>
+                <span className="sx-b"><span className="sx-t">{r.title}</span><span className="sx-s">{r.ticket_display_id} · {r.project_name} · {r.last_step ? STEP_TITLE[r.last_step]?.[0] || r.last_step : "starting"} · {ago(r.created_at)}</span></span>
+                <Badge c={r.status === "completed" ? "mute" : r.status === "failed" ? "crit" : "vio"}>{r.status === "completed" ? "Concluded" : r.status === "failed" ? "Failed" : "Running"}</Badge>
+              </Link>
+            ))}
           </div>
         </div>
         <div className="stack">
@@ -79,8 +94,17 @@ export function Home() {
             ))}
           </div>
           <div className="card pad0">
-            <div className="hh"><div><h3 className="ct">Recent changes</h3></div></div>
-            <p className="sm muted" style={{ padding: "14px 16px", margin: 0 }}>Changes and PRs are not available yet.</p>
+            <div className="hh"><div><h3 className="ct">Recent changes</h3><p className="cs">Fixes proposed by investigations</p></div><Link className="link sm" href="/changes">All</Link></div>
+            {changes.loading && !changes.data ? <div style={{ padding: 16 }}><Loading /></div> : null}
+            {changes.error ? <p className="sm muted" style={{ padding: "14px 16px", margin: 0 }}>Changes are not available on this API yet.</p> : null}
+            {changes.data && !changes.data.length ? <p className="sm muted" style={{ padding: "14px 16px", margin: 0 }}>No changes proposed yet.</p> : null}
+            {(changes.data || []).slice(0, 5).map((c) => (
+              <Link key={c.id} className="hrow" href={`/changes/${c.id}`}>
+                <span className="sx-ic r"><Icon n="commit" c="sm" /></span>
+                <span className="sx-b"><span className="sx-t">{c.title}</span><span className="sx-s">{c.display_id} · {c.project_name} · {ago(c.updated_at)}</span></span>
+                <Badge c={c.status === "approved" ? "good" : "mute"}>{c.status.replace(/_/g, " ")}</Badge>
+              </Link>
+            ))}
           </div>
         </div>
       </div>
