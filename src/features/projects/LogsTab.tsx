@@ -8,6 +8,7 @@ import { toast } from "@/lib/toast";
 import { Badge, EnvBadge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
 import { Empty, ErrorState, Loading } from "@/components/ui/States";
+import { DrainPanel } from "./DrainPanel";
 
 type Resource = { id: string; name: string; resource_type: string; log_availability: string; availability_note: string | null; last_event_at: string | null; environment_key: string; stored: number };
 type Status = {
@@ -23,64 +24,6 @@ const LEVEL: Record<string, string> = { error: "crit", fatal: "crit", warning: "
 
 function availBadge(a: string) {
   return a === "available" ? <Badge c="good">Logs received</Badge> : a === "stale" ? <Badge c="warn">Stale</Badge> : a === "none" ? <Badge c="warn">No logs</Badge> : <Badge c="mute">No events yet</Badge>;
-}
-
-function CopyRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="field">
-      <div className="lbl">{label}</div>
-      <div className="copyv">
-        <code style={{ wordBreak: "break-all" }}>{value}</code>
-        <button className="btn sm" onClick={() => { void navigator.clipboard?.writeText(value); toast("Copied"); }}>Copy</button>
-      </div>
-    </div>
-  );
-}
-
-function DrainCard({ st }: { st: Status }) {
-  const [secret, setSecret] = useState<{ endpoint_url: string; secret: string; reachable_note: string } | null>(null);
-  const [busy, setBusy] = useState(false);
-  if (!st.drain) return null;
-  const make = async () => {
-    setBusy(true);
-    try {
-      const r = await api<{ endpoint_url: string; secret: string; reachable_note: string }>(`/connections/${st.drain!.connection_id}/drain/secret`, { body: {} });
-      setSecret(r.data);
-      invalidate();
-    } catch (e) {
-      toast((e as ApiError).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <div className="card">
-      <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
-        <div>
-          <h3 className="ct">Continuous logs (log drain)</h3>
-          <p className="cs">Vercel pushes every log line to TRACE, so history is kept. {st.drain.last_batch_at ? `Last batch received ${when(st.drain.last_batch_at)}.` : "Nothing received yet."}</p>
-        </div>
-        {st.drain.secret_configured ? <Badge c="good">Secret set</Badge> : <Badge c="mute">Not set up</Badge>}
-      </div>
-      {secret ? (
-        <div className="callout warn sm" style={{ margin: "10px 0" }}>
-          <b>Copy this now. The secret is shown once.</b>
-          <CopyRow label="Endpoint URL" value={secret.endpoint_url} />
-          <CopyRow label="Signature secret" value={secret.secret} />
-          <ol className="sm ink2 olist" style={{ margin: "8px 0 0" }}>
-            <li>In Vercel: Team Settings › Drains › Add Drain › Logs › Custom endpoint.</li>
-            <li>Paste the URL, set the signature secret to the value above, and pick JSON or NDJSON.</li>
-            <li>Choose the projects and environments you selected in Log scope.</li>
-          </ol>
-          <p className="xs muted" style={{ margin: "8px 0 0" }}>{secret.reachable_note}</p>
-        </div>
-      ) : null}
-      <button className="btn sm" disabled={busy} onClick={make}>
-        <Icon n="key" c="sm" />
-        {st.drain.secret_configured ? "Generate a new secret" : "Set up the drain"}
-      </button>
-    </div>
-  );
 }
 
 export function LogsTab({ p }: { p: Project }) {
@@ -183,7 +126,7 @@ export function LogsTab({ p }: { p: Project }) {
               </p>
             ) : null}
           </div>
-          <DrainCard st={s} />
+          {s.drain ? <DrainPanel connectionId={s.drain.connection_id} /> : null}
         </>
       )}
 
