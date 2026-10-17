@@ -1,7 +1,8 @@
-import { Unavailable } from "@/components/ui/States";
+import { ChangeView } from "@/features/changes/ChangeView";
 
 export const metadata = { title: "Change · TRACE" };
 
-export default function FixPage() {
-  return <Unavailable title="Change" lede="A proposed fix with its diff, approvals and pull request." needs="the investigator and the change workflow" />;
+export default async function FixPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  return <ChangeView id={id} />;
 }
