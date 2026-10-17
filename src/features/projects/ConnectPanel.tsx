@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
 import { LogoTile } from "@/components/ui/Logo";
 import { ErrorState, Loading } from "@/components/ui/States";
+import { DrainPanel } from "./DrainPanel";
 
 export type Owner = { draftId: string; projectId?: undefined } | { projectId: string; draftId?: undefined };
 type Kind = "hosting" | "code" | "database";
@@ -76,7 +77,9 @@ export function ConnectionPanel({ kind, owner }: { kind: Kind; owner: Owner }) {
   if (list.loading && !list.data) return <Loading label="Loading connection" />;
   const last = checks.data?.[0];
 
+  const showDrain = !!conn && conn.provider === "vercel" && !!conn.project_id && (conn.status === "connected" || conn.status === "connected_with_warnings");
   return (
+    <>
     <div className="card">
       {list.error ? <ErrorState error={list.error} onRetry={list.reload} /> : null}
       {err ? <ErrorState error={err} /> : null}
@@ -239,5 +242,7 @@ export function ConnectionPanel({ kind, owner }: { kind: Kind; owner: Owner }) {
         </>
       )}
     </div>
+    {showDrain ? <DrainPanel connectionId={conn!.id} /> : null}
+    </>
   );
 }
