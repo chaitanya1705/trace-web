@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ApiError } from "@/lib/api";
 import { call as api } from "@/lib/call";
-import type { Connection, Draft, Project } from "@/lib/types";
+import type { Connection, Draft, Project, Resource } from "@/lib/types";
 import { invalidate, useApi } from "@/lib/useApi";
 import { toast } from "@/lib/toast";
 import { Badge } from "@/components/ui/Badge";
@@ -34,6 +34,8 @@ export function NewProject({ step: stepIn }: { step?: string }) {
   const code = conns.data?.find((c) => c.kind === "code" && c.status !== "disconnected");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<ApiError | null>(null);
+  /** The name is already used by another project in this organization (checked before saving and again when creating). */
+  const [nameTaken, setNameTaken] = useState<string | null>(null);
 
   const go = (s: string, id = draftId) => router.push(`/projects/new/${s}${id ? `?draft=${id}` : ""}`);
   const patch = async (body: { data?: Draft["data"]; stages?: Draft["stages"] }, id = draftId, version = draft.data?.version) => {
@@ -89,6 +91,13 @@ export function NewProject({ step: stepIn }: { step?: string }) {
       if (step === "basics") {
         if (!name.trim()) throw new ApiError("Give the project a name.", "validation_error", "-", 422);
         if (!envs.length) throw new ApiError("Pick at least one environment.", "validation_error", "-", 422);
+        /* the server is the authority (it also catches two people saving the same name at once); this just says so early */
+        const same = await api<Project[]>(`/projects?q=${encodeURIComponent(name.trim())}&limit=100`);
+        if (same.data.some((p) => p.name.trim().toLowerCase() === name.trim().toLowerCase())) {
+          setNameTaken(name.trim());
+          throw new ApiError(`A project named "${name.trim()}" already exists in your organization. Pick a different name.`, "project_name_taken", "-", 409);
+        }
+        setNameTaken(null);
         if (!draftId) {
           const r = await api<Draft>("/project-drafts", { body: { data: { basics: basics() } } });
           const d = await patch({ stages: { basics: "done" } }, r.data.id, r.data.version);
@@ -111,13 +120,27 @@ export function NewProject({ step: stepIn }: { step?: string }) {
 
   const activate = () =>
     guard(async () => {
-      const r = await api<{ project: Project; repositories_bound: number }>(`/project-drafts/${draftId}/activate`, { body: {} });
-      invalidate();
-      toast(`${r.data.project.name} created`);
-      router.push(`/projects/${r.data.project.id}/connectors`);
+      try {
+        const r = await api<{ project: Project; repositories_bound: number }>(`/project-drafts/${draftId}/activate`, { body: {} });
+        invalidate();
+        toast(`${r.data.project.name} created`);
+        router.push(`/projects/${r.data.project.id}/connectors`);
+      } catch (e) {
+        /* someone took the name after Basics: keep the draft, send the user back to rename it */
+        if (e instanceof ApiError && e.code === "project_name_taken") setNameTaken(name.trim() || "this name");
+        throw e;
+      }
     });
 
   const rev = useApi<{ stages: Array<{ stage: string; stage_state: string; ready: boolean; note: string | null; connection: Connection | null }> }>(step === "review" && draftId ? `/project-drafts/${draftId}/review` : null);
+
+  /* names for the ids kept in the draft, so the review shows what was picked rather than opaque ids */
+  const hostRes = useApi<Resource[]>(step === "review" && ready(host) ? `/connections/${host!.id}/resources` : null);
+  const codeRes = useApi<Resource[]>(step === "review" && ready(code) ? `/connections/${code!.id}/resources` : null);
+  const resName = (list: Resource[] | null, key: string, id: string) => {
+    const r = list?.find((x) => String(x[key]) === id);
+    return r ? String(r.full_name || r.name) : id;
+  };
 
   const needsDraft = step !== "basics" && !draftId;
   if (needsDraft) {
@@ -142,8 +165,11 @@ export function NewProject({ step: stepIn }: { step?: string }) {
           <h1 className="h1">New project</h1>
           <p className="lede">Connect the systems TRACE reads. Every connection is checked for real before it counts, and your progress is saved so you can come back.</p>
         </div>
-        <div className="row">
-          <button className="btn" onClick={async () => { if (draftId && confirm("Discard this setup?")) { await api(`/project-drafts/${draftId}/discard`, { body: {} }).catch(() => {}); } router.push("/projects"); }}>Cancel</button>
+        <div className="row wrapr">
+          <button className="btn" onClick={() => router.push("/projects")} title="Your progress is kept; resume it from the Projects page">Save and exit</button>
+          {draftId ? (
+            <button className="btn ghost" onClick={async () => { if (confirm("Discard this setup? Connections made for it are removed.")) { await api(`/project-drafts/${draftId}/discard`, { body: {} }).catch(() => {}); invalidate(); router.push("/projects"); } }}>Discard setup</button>
+          ) : null}
         </div>
       </div>
       <div className="wiz">
@@ -162,7 +188,7 @@ export function NewProject({ step: stepIn }: { step?: string }) {
         </div>
         <div className="wz-main">
           <div className="card" id="wzBody">
-            {err ? <ErrorState error={err} /> : null}
+            {err && !(err.code === "project_name_taken" && nameTaken) ? <ErrorState error={err} /> : null}
             {draft.error ? <ErrorState error={draft.error} onRetry={draft.reload} /> : null}
 
             {step === "basics" ? (
@@ -171,8 +197,10 @@ export function NewProject({ step: stepIn }: { step?: string }) {
                 <p className="cs wz-l">A project is one system. Everything below is per project.</p>
                 <div className="field">
                   <label className="lbl" htmlFor="npName">Project name</label>
-                  <input className="input" id="npName" value={name} onChange={(e) => setName(e.target.value)} placeholder="ShopFlow" autoComplete="off" />
-                  <div className="xs muted fhint">Must be unique in your organization.</div>
+                  <input className="input" id="npName" value={name} onChange={(e) => { setName(e.target.value); setNameTaken(null); }} placeholder="ShopFlow" autoComplete="off" aria-invalid={nameTaken ? true : undefined} aria-describedby="npNameHint" />
+                  <div id="npNameHint" className={`xs fhint ${nameTaken ? "" : "muted"}`} style={nameTaken ? { color: "var(--crit)" } : undefined} role={nameTaken ? "alert" : undefined}>
+                    {nameTaken ? `"${nameTaken}" is already used by another project. Names are unique in your organization, ignoring capitals.` : "Must be unique in your organization."}
+                  </div>
                 </div>
                 <div className="field">
                   <label className="lbl" htmlFor="npDesc">Description <span className="muted" style={{ fontWeight: 400 }}>optional</span></label>
@@ -254,22 +282,50 @@ export function NewProject({ step: stepIn }: { step?: string }) {
             {step === "review" ? (
               <>
                 <h2 className="wz-h">Review</h2>
-                <p className="cs wz-l">This is what TRACE will keep for {name || "this project"}. Skipped or unverified parts stay visibly unfinished.</p>
+                <p className="cs wz-l">This is what TRACE will keep for {name || "this project"}. Skipped or unverified parts stay visibly unfinished and can be completed later in the project.</p>
+                {nameTaken ? (
+                  <div className="callout warn sm" role="alert" style={{ marginBottom: 10 }}>
+                    <b>That name is taken.</b> Another project in your organization is already called &quot;{nameTaken}&quot;. Your setup is saved; <Link className="link" href={`/projects/new/basics?draft=${draftId}`}>change the name</Link> and come back.
+                  </div>
+                ) : null}
                 <div className="card pad0 wzrv" style={{ marginBottom: 10 }}>
                   <div className="hh"><div><h3 className="ct">{name || "Untitled"}</h3><p className="cs">{desc || "No description"}</p></div><Link className="btn sm ghost" href={`/projects/new/basics?draft=${draftId}`}>Edit</Link></div>
-                  <div style={{ padding: "0 16px 14px" }} className="row wrapr">{envs.map((e) => <span key={e} className="badge env-b">{e}</span>)}</div>
+                  <div style={{ padding: "0 16px 14px" }}>
+                    <div className="row wrapr">{envs.map((e) => <span key={e} className="badge env-b">{e}</span>)}</div>
+                    <div className="xs muted" style={{ marginTop: 8 }}>
+                      Services: {svcs.split(",").map((x) => x.trim()).filter(Boolean).join(", ") || "none yet (add them later under Code)"}
+                    </div>
+                  </div>
                 </div>
                 {rev.loading && !rev.data ? <Loading /> : null}
+                {rev.error ? <ErrorState error={rev.error} onRetry={rev.reload} /> : null}
                 {(rev.data?.stages || []).map((s) => (
                   <div key={s.stage} className="card pad0 wzrv" style={{ marginBottom: 10 }}>
                     <div className="hh">
-                      <div><h3 className="ct">{s.stage === "hosting" ? "Hosting (Vercel)" : "Code (GitHub)"}</h3><p className="cs">{s.connection ? "Connection checked" : "Not connected"}</p></div>
-                      <span className="row" style={{ gap: 8 }}>{s.connection ? statusBadge(s.connection.status) : <Badge c="warn">{s.note || "Not connected"}</Badge>}<Link className="btn sm ghost" href={`/projects/new/${s.stage}?draft=${draftId}`}>Edit</Link></span>
+                      <div><h3 className="ct">{s.stage === "hosting" ? "Hosting (Vercel)" : "Code (GitHub)"}</h3><p className="cs">{s.connection ? "Connection checked" : s.note || "Not connected"}</p></div>
+                      <span className="row" style={{ gap: 8 }}>{s.connection ? statusBadge(s.connection.status) : <Badge c="warn">{s.stage_state === "skipped" ? "Skipped" : "Not connected"}</Badge>}<Link className="btn sm ghost" href={`/projects/new/${s.stage}?draft=${draftId}`}>Edit</Link></span>
+                    </div>
+                    <div style={{ padding: "0 16px 14px" }} className="sm">
+                      {s.stage === "hosting" ? (
+                        Object.values(scope).some((v) => v.size) ? (
+                          Object.entries(scope).filter(([, v]) => v.size).map(([env, ids]) => (
+                            <div key={env}><span className="badge env-b">{env}</span> <span className="ink2">{[...ids].map((id) => resName(hostRes.data, "provider_resource_id", id)).join(", ")}</span></div>
+                          ))
+                        ) : (
+                          <span className="muted">No log scope chosen: logs stay unknown until you pick Vercel projects.</span>
+                        )
+                      ) : repos.size ? (
+                        [...repos].map(([id, ref]) => (
+                          <div key={id}><b className="mono" style={{ fontSize: 12.5 }}>{resName(codeRes.data, "provider_repository_id", id)}</b> <span className="muted">@ {ref || "default branch"}</span></div>
+                        ))
+                      ) : (
+                        <span className="muted">No repositories chosen: no code can be read yet.</span>
+                      )}
                     </div>
                   </div>
                 ))}
                 <p className="xs muted">
-                  {Object.values(scope).reduce((a, s) => a + s.size, 0)} log scope resources · {repos.size} repositories selected
+                  One repository can hold several services. After the project is created, map each service to its folder in the repository under Code.
                 </p>
               </>
             ) : null}

@@ -67,5 +67,6 @@ export type Draft = {
   stages: Record<string, "todo" | "done" | "skipped">;
   project_id: string | null;
   version: number;
+  updated_at?: string;
 };
 export type Job = { id: string; status: string; stage: string | null; error: { code: string; message: string } | null };

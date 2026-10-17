@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Empty, ErrorState, Loading } from "@/components/ui/States";
 import { CodeGraphCard, GraphSettingsCard } from "./CodeGraphCard";
 import { ConnectionPanel } from "./ConnectPanel";
+import { MappingsCard, ServicesCard } from "./Mappings";
 import { ResourcePicker } from "./ResourcePicker";
 
 const ready = (c?: Connection) => !!c && (c.status === "connected" || c.status === "connected_with_warnings");
@@ -90,6 +91,8 @@ export function CodeTab({ p }: { p: Project }) {
           <button className="btn pri sm" disabled={busy} onClick={save}>Save repositories</button>
         </div>
       </div>
+      <ServicesCard p={p} />
+      {(bound.data || []).map((b) => <MappingsCard key={b.id} p={p} bindingId={b.id} repo={b.full_name} />)}
       <div className="grid g-side" style={{ alignItems: "start" }}>
         <CodeGraphCard projectId={p.id} repoCount={bound.data?.length || 0} />
         <GraphSettingsCard />
