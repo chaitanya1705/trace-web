@@ -1285,7 +1285,7 @@ tr.dimrow td{color:var(--mute)}tr.dimrow b{color:var(--ink2)}
 .nx-prompt b{color:var(--accent);margin-right:6px}
 .nx-main{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:12px;align-items:start}
 .nx.full .nx-main{flex:1;min-height:0;align-items:stretch}
-.nx.full .nx-side{overflow:auto}
+.nx.full .nx-side{height:100%}
 .nx-canvas{position:relative;height:640px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--bg2);background-image:radial-gradient(var(--grid) 1px,transparent 1px);background-size:22px 22px}
 .nx.full .nx-canvas{height:auto}
 .nx-canvas svg{width:100%;height:100%;display:block;cursor:grab}
@@ -1323,7 +1323,9 @@ tr.dimrow td{color:var(--mute)}tr.dimrow b{color:var(--ink2)}
 .nx-banner{position:absolute;left:50%;bottom:36px;transform:translateX(-50%);background:var(--bg);border:1px solid var(--accent-line);border-radius:999px;padding:6px 8px 6px 14px;font-size:12.5px;display:flex;gap:8px;align-items:center;box-shadow:var(--shadow);max-width:calc(100% - 24px)}
 .nx-busy{position:absolute;right:12px;bottom:34px;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:3px 10px;color:var(--mute)}
 .nx-foot{position:absolute;left:0;right:0;bottom:0;padding:6px 12px;background:var(--bg);border-top:1px solid var(--line);color:var(--mute)}
-.nx-side{border:1px solid var(--line);border-radius:12px;background:var(--bg);padding:14px;max-height:640px;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:thin}
+.nx-side{border:1px solid var(--line);border-radius:12px;background:var(--bg);max-height:640px;display:flex;flex-direction:column;overflow:hidden}
+.nx-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:thin;padding:14px}
+.nx-fixed{flex:none;border-top:1px solid var(--line);padding:12px 14px;background:var(--bg)}
 .nx.full .nx-side{max-height:none}
 .nx-h{font:600 12px var(--f-body);color:var(--ink);margin:4px 0 8px;display:flex;gap:6px;align-items:baseline;justify-content:space-between}
 .nx-pills{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
