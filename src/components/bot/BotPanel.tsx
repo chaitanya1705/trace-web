@@ -1,6 +1,7 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { call } from "@/lib/call";
+import { parseMarkdown, renderMarkdown, revealSteps } from "./botMarkdown";
 import {
   botUi, closeBot, currentConvo, deleteConvo, loadConvos, newChat, openConvo, rate, regenerate, sendMessage, setTab, settle,
   type BotMsg, type Cite, type Step,
@@ -45,19 +46,10 @@ async function openCite(c: Cite, projectId: string | undefined) {
   }
 }
 
-type Tok = { w?: string; cite?: Cite };
-/** Words, with each [node_id] the answer cites turned into a chip. */
-function tokens(m: BotMsg): Tok[] {
+/** Markdown blocks, with each [node_id] the answer cites turned into a chip. */
+function blocksOf(m: BotMsg) {
   const by = new Map((m.cites || []).map((c) => [c.id, c]));
-  const out: Tok[] = [];
-  m.content.split(/(\[[a-z]+_[0-9a-f]+\])/).forEach((part) => {
-    const id = /^\[([a-z]+_[0-9a-f]+)\]$/.exec(part)?.[1];
-    if (id) {
-      const c = by.get(id);
-      if (c) out.push({ cite: c });
-    } else part.split(/(\s+)/).forEach((w) => w && out.push({ w }));
-  });
-  return out;
+  return parseMarkdown<Cite>(m.content, (id) => by.get(id));
 }
 
 function Thinking({ steps, secs, working }: { steps: Step[]; secs?: number; working?: boolean }) {
@@ -84,7 +76,8 @@ function Thinking({ steps, secs, working }: { steps: Step[]; secs?: number; work
 }
 
 function Answer({ m, last, projectId }: { m: BotMsg; last: boolean; projectId?: string }) {
-  const toks = tokens(m);
+  const blocks = useMemo(() => blocksOf(m), [m]);
+  const toks = useMemo(() => revealSteps(blocks), [blocks]);
   const [k, setK] = useState(m.fresh ? 0 : toks.length);
   const [src, setSrc] = useState(false);
   const done = k >= toks.length;
@@ -107,16 +100,18 @@ function Answer({ m, last, projectId }: { m: BotMsg; last: boolean; projectId?: 
     <>
       {m.steps?.length ? <Thinking steps={m.steps} secs={m.secs} /> : null}
       <div className={`msg a tb${src ? " srcopen" : ""}`}>
-        <p className="tb-p" style={{ whiteSpace: "pre-wrap" }}>
-          {toks.slice(0, k).map((t, i) =>
+        <div className="tb-p tb-md">
+          {renderMarkdown(blocks, k, (t, key) =>
             t.cite ? (
-              <a key={i} className="tb-cite" href="#" onClick={(e) => { e.preventDefault(); void openCite(t.cite!, projectId); }} title={t.cite.caption}>
+              <a key={key} className="tb-cite" href="#" onClick={(e) => { e.preventDefault(); void openCite(t.cite!, projectId); }} title={t.cite.caption}>
                 <Avatar kind={t.cite.kind} size={12} /><span>{t.cite.id.slice(0, 12)}</span>
               </a>
-            ) : <span key={i} className="tb-w">{t.w}</span>,
+            ) : (
+              <span key={key} className={`tb-w${t.b ? " md-b" : ""}${t.i ? " md-i" : ""}${t.code ? " md-c" : ""}`}>{t.w}</span>
+            ),
+            !done ? <span className="tb-caret" /> : null,
           )}
-          {!done ? <span className="tb-caret" /> : null}
-        </p>
+        </div>
         {done ? (
           <>
             <div className="tb-acts">
