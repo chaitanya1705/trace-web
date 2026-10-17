@@ -10,6 +10,7 @@ import { toast } from "@/lib/toast";
 import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
 import { ErrorState, Loading } from "@/components/ui/States";
+import { ComingSoon } from "./ComingSoon";
 import { ConnectionPanel, statusBadge } from "./ConnectPanel";
 import { ResourcePicker } from "./ResourcePicker";
 
@@ -227,6 +228,7 @@ export function NewProject({ step: stepIn }: { step?: string }) {
                 <h2 className="wz-h">Hosting</h2>
                 <p className="cs wz-l">Where the project runs. TRACE reads its projects, deployments and logs.</p>
                 <ConnectionPanel kind="hosting" owner={{ draftId: draftId! }} />
+                <ComingSoon kind="hosting" />
               </>
             ) : null}
 
@@ -261,6 +263,7 @@ export function NewProject({ step: stepIn }: { step?: string }) {
                 <h2 className="wz-h">Code</h2>
                 <p className="cs wz-l">Where the code lives. TRACE reads it at the exact deployed commit and never runs it.</p>
                 <ConnectionPanel kind="code" owner={{ draftId: draftId! }} />
+                <ComingSoon kind="code" />
                 {ready(code) ? (
                   <div style={{ marginTop: 16 }}>
                     <h3 className="ct" style={{ marginBottom: 8 }}>Choose repositories</h3>

@@ -8,6 +8,7 @@ import { toast } from "@/lib/toast";
 import { Badge } from "@/components/ui/Badge";
 import { Empty, ErrorState, Loading } from "@/components/ui/States";
 import { CodeGraphCard, GraphSettingsCard } from "./CodeGraphCard";
+import { ComingSoon } from "./ComingSoon";
 import { ConnectionPanel } from "./ConnectPanel";
 import { MappingsCard, ServicesCard } from "./Mappings";
 import { ResourcePicker } from "./ResourcePicker";
@@ -19,7 +20,9 @@ export function ConnectorsTab({ p }: { p: Project }) {
     <div className="stack">
       <p className="cs">Where this project runs and where its code lives. TRACE reads from both; it never writes to hosting.</p>
       <ConnectionPanel kind="hosting" owner={{ projectId: p.id }} />
+      <ComingSoon kind="hosting" />
       <ConnectionPanel kind="code" owner={{ projectId: p.id }} />
+      <ComingSoon kind="code" />
       <ConnectionPanel kind="database" owner={{ projectId: p.id }} />
     </div>
   );
