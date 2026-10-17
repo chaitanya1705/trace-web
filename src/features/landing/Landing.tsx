@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { CONNCOLOR, CONNLOGO, LOGO } from "@/data/logos";
 import { ScreenPreview } from "./ScreenPreviews";
+import { CapabilityViz } from "./CapabilityVisuals";
 import { applyTheme, themeIsDark, toggleTheme } from "@/lib/theme";
 import { rng } from "@/lib/util";
 import { Icon } from "@/components/ui/Icon";
@@ -53,7 +54,7 @@ const ROWS: Array<{ eb: string; t: string; p: string; pts: string[]; lay: string
   { eb: "Change impact", t: "Every change, with the code behind it", p: "Pick a change and TRACE retrieves the diff at the deployed revision, predicts the exposure and compares it with what telemetry showed.", pts: ["Code pinned to the revision that served traffic", "Prediction compared with observation", "Risk and linked incident on one card"], lay: "" },
   { eb: "Resolution", t: "Verify the fix before you trust it", p: "Recommended, attempted and verified are tracked separately. Recovery is checked against criteria you can read.", pts: ["Immediate mitigation with its prerequisites", "Permanent fix and fallback if recovery does not follow", "Failure rate plotted against the target"], lay: "flip" },
   { eb: "TRACE Bot", t: "Ask in plain words, get cited answers", p: "Question an incident the way you would ask a teammate. Answers cite the evidence they rest on and say when something is not known.", pts: ["Every answer lists its sources", "Suggested follow-up checks", "Knows what it cannot see"], lay: "" },
-  { eb: "Analytics", t: "Measure how well it investigates", p: "Track diagnosis accuracy, time to a supported finding and how often TRACE correctly abstains when evidence is missing.", pts: ["Median time to diagnosis against your previous process", "Weekly outcomes: correct, partial, abstained, wrong", "Figures come from your reviewed investigations, never from samples"], lay: "wide" },
+  { eb: "Analytics", t: "Measure how well it investigates", p: "Track diagnosis accuracy, time to a supported finding and how often TRACE correctly abstains when evidence is missing.", pts: ["Median time to diagnosis against your previous process", "Weekly outcomes: correct, partial, abstained, wrong", "Sample figures shown here; yours come from reviewed investigations"], lay: "wide" },
 ];
 
 /* ------------------------------------------------------------------ page */
@@ -363,6 +364,7 @@ export function Landing() {
                 <p className="rvx rvp" style={{ ["--d" as string]: ".12s" }}>{r.p}</p>
                 <ul className="l-pts rvx rvp" style={{ ["--d" as string]: ".2s" }}>{r.pts.map((x) => <li key={x}>{x}</li>)}</ul>
               </div>
+              <CapabilityViz k={r.eb} />
             </div>
           ))}
         </div>
