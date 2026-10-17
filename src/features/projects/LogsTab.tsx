@@ -16,7 +16,7 @@ type Status = {
   resources: Resource[];
   hosting_connection_id: string | null;
   drain: { connection_id: string; secret_configured: boolean; endpoint_url: string; last_batch_at: string | null } | null;
-  last_capture: { id: string; status: string; stage: string | null; result_ref: { accepted?: number; duplicates?: number; read?: number; seconds?: number } | null; error: { message: string } | null; created_at: string } | null;
+  last_capture: { id: string; status: string; stage: string | null; result_ref: { accepted?: number; duplicates?: number; read?: number; seconds?: number; listening_seconds?: number; note?: string; resources?: { provider_project_id: string; environment: string; deployment: string | null; outcome: string; read: number; accepted: number; duplicates: number }[] } | null; error: { message: string } | null; created_at: string } | null;
 };
 type LogRow = { id: string; event_time: string | null; ingested_at: string; level: string | null; source: string | null; service_hint: string | null; message: string; request_id: string | null; status_code: number | null; deployment_id: string | null; environment_key: string | null; extra: Record<string, any>; graph_status: string; provider?: string };
 
@@ -126,7 +126,41 @@ export function LogsTab({ p }: { p: Project }) {
             {lc && !capturing ? (
               <p className="sm" style={{ margin: "10px 0 0" }}>
                 Last capture ({when(lc.created_at)}):{" "}
-                {lc.status === "succeeded" ? <>stored <b>{lc.result_ref?.accepted ?? 0}</b> new events ({lc.result_ref?.duplicates ?? 0} already stored). This capture can be incomplete.</> : lc.status === "failed" || lc.status === "dead" ? <span style={{ color: "var(--crit-ink)" }}>failed: {lc.error?.message}</span> : lc.status}
+                {lc.status === "succeeded" ? (
+                  <>
+                    read <b>{lc.result_ref?.read ?? 0}</b>, stored <b>{lc.result_ref?.accepted ?? 0}</b> new events, {lc.result_ref?.duplicates ?? 0} duplicates
+                    {lc.result_ref?.resources?.length ? (
+                      <span> · {lc.result_ref.resources.map((r) => `${r.provider_project_id} (${r.environment}): ${r.outcome}, read ${r.read}, stored ${r.accepted}, duplicates ${r.duplicates}`).join("; ")}</span>
+                    ) : null}
+                    {lc.result_ref?.note ? <span> · {lc.result_ref.note}</span> : <span> · This capture can be incomplete.</span>}
+                  </>
+                ) : lc.status === "failed" || lc.status === "dead" ? (
+                  <>
+                    <span style={{ color: "var(--crit-ink)" }}>failed: {lc.error?.message}</span>
+                    {lc.result_ref ? (
+                      <>
+                        <span> · partial results before failure: read <b>{lc.result_ref.read ?? 0}</b>, stored <b>{lc.result_ref.accepted ?? 0}</b> new events, {lc.result_ref.duplicates ?? 0} duplicates</span>
+                        {lc.result_ref.resources?.length ? (
+                          <span> · {lc.result_ref.resources.map((r) => `${r.provider_project_id} (${r.environment}): ${r.outcome}, read ${r.read}, stored ${r.accepted}, duplicates ${r.duplicates}`).join("; ")}</span>
+                        ) : null}
+                        {lc.result_ref.note ? <span> · {lc.result_ref.note}</span> : null}
+                      </>
+                    ) : null}
+                  </>
+                ) : lc.status === "cancelled" ? (
+                  <>
+                    <span>cancelled</span>
+                    {lc.result_ref ? (
+                      <>
+                        <span> · partial results: read <b>{lc.result_ref.read ?? 0}</b>, stored <b>{lc.result_ref.accepted ?? 0}</b> new events, {lc.result_ref.duplicates ?? 0} duplicates</span>
+                        {lc.result_ref.resources?.length ? (
+                          <span> · {lc.result_ref.resources.map((r) => `${r.provider_project_id} (${r.environment}): ${r.outcome}, read ${r.read}, stored ${r.accepted}, duplicates ${r.duplicates}`).join("; ")}</span>
+                        ) : null}
+                        {lc.result_ref.note ? <span> · {lc.result_ref.note}</span> : null}
+                      </>
+                    ) : null}
+                  </>
+                ) : lc.status}
               </p>
             ) : null}
           </div>

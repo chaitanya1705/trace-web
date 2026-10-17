@@ -35,8 +35,16 @@ async function startInvestigation(t: Pick<Ticket, "id" | "display_id">, go: (hre
   } catch (e) {
     const er = e as ApiError;
     if (er.code === "run_active") {
-      toast("An investigation is already running for this ticket");
-      go("/investigate");
+      const runId = er.details.run_id;
+      const projectId = er.details.project_id;
+      if (typeof runId === "string" && typeof projectId === "string") {
+        closeLayer();
+        toast(`Opening the active investigation for ${t.display_id}`);
+        go(`/investigate/${projectId}/${runId}`);
+      } else {
+        toast("The active investigation could not be located. Open Investigate to find it.");
+        go("/investigate");
+      }
     } else toast(er.message);
   }
 }
@@ -266,6 +274,26 @@ function TicketDetail({ id, projects }: { id: string; projects: Project[] }) {
   const router = useRouter();
   const res = useApi<Ticket & { revisions: Array<{ revision_number: number; created_at: string }>; has_payload: boolean }>(`/tickets/${id}`);
   const t = res.data;
+  const [requestId, setRequestId] = useState("");
+  const liveWindow = (() => {
+    if (!t) return null;
+    const anchor = new Date(t.opened_at).getTime();
+    const start = t.window_start ? new Date(t.window_start).getTime() : t.window_end ? new Date(t.window_end).getTime() : anchor;
+    const end = t.window_end ? new Date(t.window_end).getTime() : t.window_start ? new Date(t.window_start).getTime() : anchor;
+    if (![anchor, start, end].every(Number.isFinite)) return null;
+    const pad = 15 * 60 * 1000;
+    return { since: new Date(start - pad).toISOString(), until: new Date(end + pad).toISOString() };
+  })();
+  const logParams = new URLSearchParams({ limit: "50" });
+  if (t?.environment_key) logParams.set("environment", t.environment_key);
+  if (t?.service_hint) logParams.set("service_hint", t.service_hint);
+  if (requestId) logParams.set("request_id", requestId);
+  if (liveWindow) {
+    logParams.set("since", liveWindow.since);
+    logParams.set("until", liveWindow.until);
+  }
+  const logPath = t?.project_id ? `/projects/${t.project_id}/logs?${logParams}` : null;
+  const logs = useApi<LiveLog[]>(logPath, () => 5000, { clearOnPathChange: true });
   const setStatus = async (status: string) => {
     try {
       await api(`/tickets/${id}`, { method: "PATCH", body: { version: t!.version, status } });
@@ -294,11 +322,12 @@ function TicketDetail({ id, projects }: { id: string; projects: Project[] }) {
             <dl className="kv" style={{ gridTemplateColumns: "170px 1fr", marginTop: 12 }}>
               {t.service_hint ? <><dt>Operation</dt><dd className="mono">{t.service_hint}</dd></> : null}
               <dt>Observed</dt><dd>{t.window_start ? `${new Date(t.window_start).toLocaleString()} → ${t.window_end ? new Date(t.window_end).toLocaleString() : "unknown"}` : <span className="muted">Time window unknown</span>}</dd>
-              {es.requests !== undefined && es.requests !== null ? <><dt>Evidence in export</dt><dd>{es.requests} requests · {es.backend_events ?? 0} backend events · {es.evidence_gaps ?? 0} gaps</dd></> : null}
+              {t.source === "pulselab" && es.requests !== undefined && es.requests !== null ? <><dt>Reporter-supplied PulseLab export</dt><dd>{es.requests} requests · {es.backend_events ?? 0} backend events · {es.evidence_gaps ?? 0} gaps</dd></> : null}
               {es.target?.source_revision ? <><dt>Deployed revision</dt><dd className="mono">{String(es.target.source_revision).slice(0, 12)}</dd></> : null}
               <dt>Evidence sync</dt><dd>{evidenceNote(t) || "No evidence attached"}</dd>
               <dt>Revisions</dt><dd>{t.revisions.length}</dd>
             </dl>
+            <TicketLiveLogs ticket={t} logs={logs} requestId={requestId} setRequestId={setRequestId} />
             <div className="callout sm" style={{ marginTop: 12 }}>
               <b>Investigate.</b> <span className="ink2">{t.investigate.available ? "Ready." : t.investigate.reason}</span>
             </div>
@@ -324,5 +353,77 @@ function TicketDetail({ id, projects }: { id: string; projects: Project[] }) {
         </span>
       </div>
     </Modal>
+  );
+}
+
+type LiveLog = {
+  id: string;
+  event_time: string | null;
+  ingested_at: string;
+  level: string | null;
+  source: string | null;
+  service_hint: string | null;
+  request_id: string | null;
+  status_code: number | null;
+  environment_key: string | null;
+  message: string;
+  provider: string | null;
+};
+
+function TicketLiveLogs({ ticket, logs, requestId, setRequestId }: {
+  ticket: Ticket;
+  logs: ReturnType<typeof useApi<LiveLog[]>>;
+  requestId: string;
+  setRequestId: (id: string) => void;
+}) {
+  const rows = logs.data || [];
+  const coverage = logs.meta?.coverage as { stored_total?: number; matched?: number; empty_dataset?: boolean; source?: { configured?: boolean } } | null;
+  const requestIds = ticket.source === "pulselab" && Array.isArray(ticket.evidence_summary?.relevant_request_ids)
+    ? ticket.evidence_summary.relevant_request_ids.filter((id: unknown): id is string => typeof id === "string" && id.length > 0)
+    : [];
+  return (
+    <section className="card" aria-label="Live project logs" style={{ marginTop: 14, padding: 14 }}>
+      <div className="row" style={{ justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+        <div>
+          <b className="sm">Project logs</b>
+          <div className="xs muted">Stored ShopFlow project events · refreshes every 5 seconds while this ticket is open</div>
+        </div>
+        {ticket.project_id ? <button className="btn sm" onClick={logs.reload}>Refresh</button> : null}
+      </div>
+      {!ticket.project_id ? <p className="sm muted" style={{ marginBottom: 0 }}>Assign this ticket to a project to see its logs.</p> : null}
+      {ticket.project_id && requestIds.length ? (
+        <div className="row wrapr" style={{ gap: 5, marginTop: 9 }} aria-label="Reporter supplied request IDs">
+          <span className="xs muted">Reporter supplied request IDs:</span>
+          {requestIds.slice(0, 10).map((id) => <button key={id} className={`btn sm${requestId === id ? " pri" : ""}`} aria-pressed={requestId === id} onClick={() => setRequestId(requestId === id ? "" : id)}>{id}</button>)}
+          {requestId ? <button className="btn sm" onClick={() => setRequestId("")}>Clear request filter</button> : null}
+        </div>
+      ) : null}
+      {ticket.project_id && logs.error ? <div style={{ marginTop: 10 }}><ErrorState error={logs.error} onRetry={logs.reload} /></div> : null}
+      {ticket.project_id && logs.loading && !logs.data ? <div style={{ padding: 12 }}><Loading label="Loading project logs" /></div> : null}
+      {ticket.project_id && !logs.error && rows.length === 0 && !logs.loading ? (
+        <p className="sm muted" style={{ marginBottom: 0, marginTop: 10 }}>
+          {!coverage?.source?.configured
+            ? "No log source is configured for this project."
+            : coverage.empty_dataset && !coverage.stored_total
+              ? "No project log events have been received yet."
+              : "No events match this ticket’s time window and filters."}
+        </p>
+      ) : null}
+      {rows.length ? (
+        <div className="scroll-x" style={{ marginTop: 10, maxHeight: 300, overflow: "auto" }}>
+          <table className="tbl">
+            <thead><tr><th>Time</th><th>Level</th><th>Event</th><th>Request</th><th>Source</th></tr></thead>
+            <tbody>{rows.map((row) => <tr key={row.id}>
+              <td className="xs mono">{row.event_time ? new Date(row.event_time).toLocaleString() : <span className="muted">unknown time</span>}</td>
+              <td className="xs">{row.level || "unknown"}{row.status_code ? ` · ${row.status_code}` : ""}</td>
+              <td><span className="mono xs" style={{ display: "block", maxWidth: 360, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.message}</span><span className="xs muted">{row.service_hint || "service unknown"}{row.environment_key ? ` · ${row.environment_key}` : ""}</span></td>
+              <td className="xs mono">{row.request_id ? <button className="btn sm" aria-label={`Filter logs by request ${row.request_id}`} onClick={() => setRequestId(row.request_id!)}>{row.request_id}</button> : "—"}</td>
+              <td className="xs">{row.provider === "app_push" ? "ShopFlow app" : row.provider === "vercel" ? "Vercel runtime" : row.provider || row.source || "unknown source"}</td>
+            </tr>)}</tbody>
+          </table>
+        </div>
+      ) : null}
+      {ticket.project_id && rows.length ? <div className="xs muted" style={{ marginTop: 6 }}>{coverage?.matched ?? rows.length} matching stored events · latest first</div> : null}
+    </section>
   );
 }
