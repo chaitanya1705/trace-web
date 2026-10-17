@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "@/lib/api";
+import { askBot, setBotFocus } from "@/lib/bot";
 import { call } from "@/lib/call";
 import { closeLayer, openLayer } from "@/lib/layer";
 import { toast } from "@/lib/toast";
@@ -17,7 +18,7 @@ type Tab = "impact" | "timeline" | "hyp" | "evidence";
 const running = (d: RunDetail | null) => !!d && (d.run.status === "running" || d.run.status === "queued");
 
 /** Evidence the run cited. A click opens the exact item: log text, or source lines with the pinned content hash. */
-function openEvidence(id: string, all: Evidence[]) {
+export function openEvidence(id: string, all: Evidence[]) {
   const e = all.find((x) => x.id === id);
   if (!e) return;
   openLayer(
@@ -270,45 +271,6 @@ function EvidenceList({ d }: { d: RunDetail }) {
   );
 }
 
-/* ------------------------------------------------------------------ ask */
-function Ask({ d, projectId, runId }: { d: RunDetail; projectId: string; runId: string }) {
-  const [q, setQ] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<ApiError | null>(null);
-  const send = async () => {
-    if (q.trim().length < 2) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      await call(`/projects/${projectId}/investigations/${runId}/ask`, { body: { question: q.trim() } });
-      setQ("");
-      invalidate();
-    } catch (e) {
-      setErr(e as ApiError);
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <div className="card" id="ask-run" style={{ marginTop: 16 }}>
-      <h3 className="ct">Ask about this investigation</h3>
-      <p className="cs">Answers use only the evidence this run retrieved, and every claim cites it. They are interpretation, never new evidence.</p>
-      {d.answers.map((a) => (
-        <div key={a.id} style={{ borderTop: "1px solid var(--line)", padding: "10px 0" }}>
-          <div className="sm" style={{ fontWeight: 500 }}>{a.question}</div>
-          <div className="sm ink2" style={{ marginTop: 4, whiteSpace: "pre-wrap" }}>{a.answer}</div>
-          <div style={{ marginTop: 4 }}>{a.citations.map((c) => <Ref key={c.id} id={c.id} all={d.evidence} />)}</div>
-        </div>
-      ))}
-      {err ? <ErrorState error={err} /> : null}
-      <div className="row" style={{ gap: 8, marginTop: 8 }}>
-        <input className="input" style={{ flex: 1 }} placeholder="e.g. Why is the payment provider not the cause?" aria-label="Question" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void send()} disabled={busy} />
-        <button className="btn pri" onClick={send} disabled={busy || q.trim().length < 2}><Icon n="send" c="sm" />{busy ? "Thinking" : "Ask"}</button>
-      </div>
-    </div>
-  );
-}
-
 /* ------------------------------------------------------------------ page */
 export function InvestigationView({ projectId, runId }: { projectId: string; runId: string }) {
   const res = useApi<RunDetail>(`/projects/${projectId}/investigations/${runId}`, (d) => (running(d) ? 1200 : false));
@@ -317,6 +279,12 @@ export function InvestigationView({ projectId, runId }: { projectId: string; run
   const [replay, setReplay] = useState<number | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const d = res.data;
+
+  /* TRACE Bot follows the page: "this" in a question means this run */
+  useEffect(() => {
+    setBotFocus({ kind: "investigation", id: runId, projectId, label: d ? `${d.ticket.display_id ?? "Investigation"}` : "This investigation" });
+    return () => setBotFocus(null);
+  }, [runId, projectId, d?.ticket.display_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => () => { if (timer.current) clearInterval(timer.current); }, []);
   useEffect(() => { if (d && running(d)) setOpenStep((o) => ({ ...o, [d.steps[d.steps.length - 1]?.sequence ?? 0]: true })); }, [d?.steps.length]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -373,7 +341,7 @@ export function InvestigationView({ projectId, runId }: { projectId: string; run
         <div className="row wrapr">
           <button className="btn" onClick={startReplay} disabled={live || !d.steps.length}><Icon n="refresh" c="sm" />Replay</button>
           <button className="btn" onClick={rerun} disabled={live} title="Run a new investigation on the same ticket"><Icon n="play" c="sm" />Rerun</button>
-          <button className="btn" onClick={() => document.getElementById("ask-run")?.scrollIntoView({ behavior: "smooth" })} disabled={!d.items}><Icon n="spark" c="sm" />Ask about this</button>
+          <button className="btn" onClick={() => askBot()} disabled={!d.items} title="Open TRACE Bot on this investigation"><Icon n="spark" c="sm" />Ask about this</button>
         </div>
       </div>
       {d.run.status === "failed" ? <div className="callout warn" role="alert"><Icon n="alert" c="sm" /> <b>This investigation stopped early.</b> <span className="ink2">{d.gaps.find((g) => g.description.startsWith("The investigation stopped"))?.description}</span></div> : null}
@@ -397,7 +365,6 @@ export function InvestigationView({ projectId, runId }: { projectId: string; run
           {tab === "impact" ? <Impact d={d} /> : tab === "timeline" ? <Timeline events={d.timeline} /> : tab === "hyp" ? <Hypotheses d={d} /> : <EvidenceList d={d} />}
         </div>
       </div>
-      {!live && d.items ? <Ask d={d} projectId={projectId} runId={runId} /> : null}
     </div>
   );
 }
