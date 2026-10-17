@@ -3,7 +3,7 @@ import { botUi, closeBot } from "@/lib/bot";
 import { useStore } from "@/lib/store";
 import { Icon } from "@/components/ui/Icon";
 
-/** The bot answers from investigation evidence, which does not exist yet. Honest placeholder, no canned answers. */
+/** The workspace-wide bot is not built. Questions about one run are asked on that investigation's page. Honest placeholder, no canned answers. */
 export function BotPanel() {
   useStore();
   return (
@@ -20,7 +20,7 @@ export function BotPanel() {
         <div className="callout sm">
           <b>Not available yet.</b>{" "}
           <span className="ink2">
-            The bot answers questions from an investigation&apos;s cited evidence. Investigations are not built yet, so there is nothing for it to answer from, and TRACE will not make answers up.
+            The workspace-wide bot (history, follow-ups, scoped chat) is not built yet, and TRACE will not make answers up. You can ask a question about a single run on its Investigate page; the answer cites only that run&apos;s evidence.
           </span>
         </div>
       </div>

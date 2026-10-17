@@ -45,3 +45,15 @@
 }
 .skip { position: absolute; left: -999px; top: 8px; z-index: 100; background: var(--pri); color: var(--onpri); padding: 8px 12px; border-radius: 8px; }
 .skip:focus { left: 8px; }
+
+/* off-canvas sidebar (<= 900px): a scrim closes it, and the aside is `inert` while closed (AppShell) */
+.side-scrim { position: fixed; inset: 0; z-index: 60; background: rgba(5, 5, 10, .4); }
+
+/* project scope select: shrinks inside the toolbar instead of being clipped, and shows keyboard focus */
+#swtch { overflow: visible !important; }
+.sw, .swl { min-width: 0; max-width: 100%; }
+.swl select { min-width: 0; max-width: 100%; text-overflow: ellipsis; }
+.swl:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* long names (projects, repositories, tickets) wrap instead of running past the card */
+.h1, .lede, .ct, .cs, .crumbs, .facts .fv { overflow-wrap: anywhere; min-width: 0; }

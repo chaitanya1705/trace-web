@@ -33,7 +33,6 @@ const Preview = ({ k }: { k: string }) => <ScreenPreview k={k} />;
 const CONNECTORS = [
   { id: "github", name: "GitHub" },
   { id: "vercel", name: "Vercel" },
-  { id: "supabase", name: "Supabase" },
 ];
 const logoPath = (id: string) => (LOGO as Record<string, string>)[(CONNLOGO as Record<string, string>)[id]];
 function Chip({ c, hidden }: { c: { id: string; name: string }; hidden?: boolean }) {
@@ -54,7 +53,7 @@ const ROWS: Array<{ eb: string; t: string; p: string; pts: string[]; lay: string
   { eb: "Change impact", t: "Every change, with the code behind it", p: "Pick a change and TRACE retrieves the diff at the deployed revision, predicts the exposure and compares it with what telemetry showed.", pts: ["Code pinned to the revision that served traffic", "Prediction compared with observation", "Risk and linked incident on one card"], lay: "" },
   { eb: "Resolution", t: "Verify the fix before you trust it", p: "Recommended, attempted and verified are tracked separately. Recovery is checked against criteria you can read.", pts: ["Immediate mitigation with its prerequisites", "Permanent fix and fallback if recovery does not follow", "Failure rate plotted against the target"], lay: "flip" },
   { eb: "TRACE Bot", t: "Ask in plain words, get cited answers", p: "Question an incident the way you would ask a teammate. Answers cite the evidence they rest on and say when something is not known.", pts: ["Every answer lists its sources", "Suggested follow-up checks", "Knows what it cannot see"], lay: "" },
-  { eb: "Analytics", t: "Measure how well it investigates", p: "Track diagnosis accuracy, time to a supported finding and how often TRACE correctly abstains when evidence is missing.", pts: ["Median time to diagnosis against your previous process", "Weekly outcomes: correct, partial, abstained, wrong", "Sample figures shown here; yours come from reviewed investigations"], lay: "wide" },
+  { eb: "Analytics", t: "Measure how well it investigates", p: "Track diagnosis accuracy, time to a supported finding and how often TRACE correctly abstains when evidence is missing.", pts: ["Median time to diagnosis against your previous process", "Weekly outcomes: correct, partial, abstained, wrong", "Figures come from your reviewed investigations, never from samples"], lay: "wide" },
 ];
 
 /* ------------------------------------------------------------------ page */
@@ -260,7 +259,7 @@ export function Landing() {
             <button className="l-icon" id="lTheme" aria-label="Switch between light and dark mode" onClick={() => setDark(toggleTheme())}>
               <Icon n={dark ? "sun" : "moon"} />
             </button>
-            <Link className="l-signin" href="/home">Sign in</Link>
+            <Link className="l-signin" href="/home">Open workspace</Link>
           </div>
         </div>
       </header>
@@ -280,7 +279,7 @@ export function Landing() {
               <p className="l-sub l-fade">TRACE is the debugging assistant for production incidents. It investigates your changes, code and telemetry, tests competing explanations, and tells you what remains unknown.</p>
               <div className="l-cta l-fade d2">
                 <Link className="l-btn solo" href="/home">Open workspace</Link>
-                <Link className="l-ghost" href="/home">Sign in<Icon n="arrow" c="sm" /></Link>
+                <a className="l-ghost" href="#features">See the product<Icon n="arrow" c="sm" /></a>
               </div>
             </div>
             <div className="l-arc" id="larc" ref={arc} />
@@ -314,8 +313,8 @@ export function Landing() {
                         ))}
                       </nav>
                       <div className="side-foot">
-                        <div className="cov"><b>Evidence coverage</b><small>Production · 5 of 6 sources healthy</small><div className="meter"><i style={{ width: "92%" }} /></div></div>
-                        <div className="me"><span className="av">CN</span><div style={{ flex: 1, minWidth: 0 }}><div className="sm" style={{ fontWeight: 500 }}>Chaitanya N.</div><small>On-call · Platform</small></div></div>
+                        <div className="cov"><b>Evidence coverage</b><small>Sample · 5 of 6 sources healthy</small><div className="meter"><i style={{ width: "92%" }} /></div></div>
+                        <div className="me"><span className="av">SU</span><div style={{ flex: 1, minWidth: 0 }}><div className="sm" style={{ fontWeight: 500 }}>Sample user</div><small>Sample data</small></div></div>
                       </div>
                     </aside>
                     <div className="main">
@@ -343,9 +342,9 @@ export function Landing() {
             <h2 className="rvx rvh" style={{ ["--d" as string]: ".06s" }}>Built around the questions engineers ask</h2>
           </div>
           <div className="l-qa">
-            <div className="l-card reveal"><div className="glow" /><p className="q">What changed?</p><p>Deployments, configuration, flags and migrations pinned to the revision that was actually serving traffic.</p><div className="a">PAYMENT_TIMEOUT_MS 2000 → 800</div></div>
-            <div className="l-card reveal"><div className="glow" /><p className="q">Which explanation fits?</p><p>Competing hypotheses, each with supporting and contradicting evidence you can open and inspect.</p><div className="a">4 tested · 1 supported · 2 ruled out</div></div>
-            <div className="l-card reveal"><div className="glow" /><p className="q">What else is affected?</p><p>Direct exposure, likely propagation and observed impact stay separate, with unknowns called out.</p><div className="a">Checkout failing · renewals at risk</div></div>
+            <div className="l-card reveal"><div className="glow" /><p className="q">What changed?</p><p>Deployments, configuration, flags and migrations pinned to the revision that was actually serving traffic.</p><div className="a">Example: PAYMENT_TIMEOUT_MS 2000 → 800</div></div>
+            <div className="l-card reveal"><div className="glow" /><p className="q">Which explanation fits?</p><p>Competing hypotheses, each with supporting and contradicting evidence you can open and inspect.</p><div className="a">Example: 4 tested · 1 supported · 2 ruled out</div></div>
+            <div className="l-card reveal"><div className="glow" /><p className="q">What else is affected?</p><p>Direct exposure, likely propagation and observed impact stay separate, with unknowns called out.</p><div className="a">Example: checkout failing · renewals at risk</div></div>
           </div>
         </div>
       </section>
@@ -374,7 +373,7 @@ export function Landing() {
           <div className="rv">
             <div className="l-eyebrow rvx rvp">Integrations</div>
             <h2 className="rvx rvh" style={{ ["--d" as string]: ".06s" }}>Connects to the systems you already run</h2>
-            <p className="l-secp rvx rvp" style={{ ["--d" as string]: ".14s" }}>Read-only connectors (GitHub, Vercel and Supabase) bring your deployments, code and runtime logs into one place. If a source is missing, TRACE says so and asks for it.</p>
+            <p className="l-secp rvx rvp" style={{ ["--d" as string]: ".14s" }}>Read-only connectors (GitHub and Vercel) bring your deployments, code and runtime logs into one place. If a source is missing, TRACE says so and asks for it.</p>
             <ol className="l-steps">
               <li className="rvx rvp" style={{ ["--d" as string]: ".22s" }}><b>Collect</b><span>Read-only connectors pull in what changed and what the system reported.</span></li>
               <li className="rvx rvp" style={{ ["--d" as string]: ".3s" }}><b>Form hypotheses</b><span>TRACE proposes competing explanations for the failure.</span></li>
@@ -400,8 +399,8 @@ export function Landing() {
         <div className="l-strip-label l-syslabel">Connectors we support today</div>
         <div className="l-mq l-sys">
           <div className="l-track" id="lsys1" style={{ animationDuration: "40s" }}>
-            {half(8).flatMap((k) => [CONNECTORS[0], CONNECTORS[2]].map((c) => <Chip key={"a" + k + c.id} c={c} />))}
-            {half(8).flatMap((k) => [CONNECTORS[0], CONNECTORS[2]].map((c) => <Chip key={"b" + k + c.id} c={c} hidden />))}
+            {half(8).map((k) => <Chip key={"a" + k} c={CONNECTORS[0]} />)}
+            {half(8).map((k) => <Chip key={"b" + k} c={CONNECTORS[0]} hidden />)}
           </div>
         </div>
         <div className="l-mq l-sys">
@@ -417,8 +416,8 @@ export function Landing() {
           <div className="l-cta-panel rv">
             <canvas id="pix" ref={pix} aria-label="PixelBlast" />
             <h2 className="rvwipe">Ask what broke. Get evidence, not a guess.</h2>
-            <p className="rvp2">Open your workspace and investigate a payment outage with competing hypotheses.</p>
-            <div className="l-cta rvbtn"><Link className="l-btn solo" href="/home">Open workspace</Link><Link className="l-ghost" href="/home">Sign in</Link></div>
+            <p className="rvp2">Open your workspace, connect Vercel and GitHub, and start an investigation from a ticket.</p>
+            <div className="l-cta rvbtn"><Link className="l-btn solo" href="/home">Open workspace</Link><a className="l-ghost" href="#how">How it works</a></div>
           </div>
           <div className="l-foot">
             <span>By Chaitanya N.</span>

@@ -1,6 +1,8 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
+import { S } from "@/lib/state";
+import { useStore } from "@/lib/store";
 import { useApi } from "@/lib/useApi";
 import { Badge, Chip, EnvBadge, FindingBadge, SevBadge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
@@ -12,11 +14,13 @@ const active = (r: RunRow) => r.status === "queued" || r.status === "running";
 
 /** All investigations the person can see. Each one is a run over the project's evidence graph; open one to watch the steps. */
 export function Investigations() {
+  useStore();
   const res = useApi<RunRow[]>("/investigations", (d) => (d.some(active) ? 2000 : false));
   const [view, setView] = useState<"act" | "all">("all");
   const [q, setQ] = useState("");
-  const rows = (res.data || []).filter((r) => (view === "all" || active(r)) && (r.title + (r.ticket_display_id || "") + (r.project_name || "")).toLowerCase().includes(q.toLowerCase()));
-  const running = (res.data || []).filter(active).length;
+  const rows = (res.data || []).filter((r) => (S.proj === "All" || r.project_id === S.proj) && (view === "all" || active(r)) && (r.title + (r.ticket_display_id || "") + (r.project_name || "")).toLowerCase().includes(q.toLowerCase()));
+  const scoped = (res.data || []).filter((r) => S.proj === "All" || r.project_id === S.proj);
+  const running = scoped.filter(active).length;
 
   return (
     <div className="page">
@@ -31,7 +35,7 @@ export function Investigations() {
         <div className="tb-views">
           <div className="seg">
             <button className={view === "act" ? "on" : ""} onClick={() => setView("act")}>Active <span className="n">{running}</span></button>
-            <button className={view === "all" ? "on" : ""} onClick={() => setView("all")}>All <span className="n">{res.data?.length ?? 0}</span></button>
+            <button className={view === "all" ? "on" : ""} onClick={() => setView("all")}>All <span className="n">{scoped.length}</span></button>
           </div>
         </div>
         <div className="tb-bar">
