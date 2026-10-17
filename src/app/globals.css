@@ -1348,3 +1348,62 @@ span.nx-pill{cursor:default;display:inline-block}
   .nx-side{max-height:none}
   .nx-search{width:calc(100% - 20px);top:52px}
 }
+/* ---- TRACE Bot streaming answers ---- */
+@keyframes tb-blur-in{from{opacity:0;filter:blur(4px)}to{opacity:1;filter:none}}
+@keyframes tb-pop-in{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+@keyframes tb-fade-up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.msg.tb{max-width:100%;width:100%}
+.tb-p{margin:0;font-size:13.5px;line-height:1.65;color:var(--ink)}
+.tb-w{display:inline;animation:tb-blur-in 250ms ease-out both}
+.tb-caret{display:inline-block;width:2px;height:13px;border-radius:2px;background:var(--ink);margin-left:2px;vertical-align:-2px;animation:blink 1s steps(2) infinite}
+.tb-cite{display:inline-flex;align-items:center;gap:4px;height:18px;padding:0 6px 0 3px;margin-right:4px;border-radius:5px;background:var(--bg2);box-shadow:0 0 0 1px var(--line);font:10.5px var(--f-mono);color:var(--ink2);text-decoration:none;vertical-align:1px;animation:tb-pop-in 250ms cubic-bezier(.23,1,.32,1) both;transition:background .15s,color .15s}
+.tb-cite:hover{background:var(--bg3);color:var(--ink)}
+.tb-av{display:inline-grid;place-items:center;border-radius:4px;flex:none}
+.tb-acts{display:flex;align-items:center;gap:2px;margin-top:8px;animation:fi .4s both}
+.tb-ic{width:26px;height:26px;display:grid;place-items:center;border:0;background:transparent;border-radius:6px;color:var(--mute);transition:background .1s,color .1s}
+.tb-ic:hover{background:var(--bg3);color:var(--ink2)}.tb-ic.on{color:var(--accent);background:var(--accent-soft)}
+.tb-srcbtn{display:flex;align-items:center;gap:6px;margin-left:6px;border:0;background:transparent;border-radius:6px;padding:3px 5px;font-size:12px;color:var(--ink2);transition:background .15s}
+.tb-srcbtn:hover{background:var(--bg3)}
+.tb-stack{display:flex}.tb-stack .tb-av{border-radius:50%;box-shadow:0 0 0 1.5px var(--bg)}.tb-stack .tb-av+.tb-av{margin-left:-4px}
+.tb-srcwrap{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows .3s cubic-bezier(.23,1,.32,1),opacity .3s}
+.tb.srcopen .tb-srcwrap{grid-template-rows:1fr;opacity:1}
+.tb-srcin{overflow:hidden}
+.tb-srclist{margin-top:6px;display:flex;flex-direction:column;border-radius:8px;background:var(--bg2);box-shadow:0 0 0 1px var(--line);padding:4px}
+.tb-src{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;font-size:12px;color:var(--ink2);text-decoration:none;transition:background .15s,color .15s}
+.tb-src:hover{background:var(--bg3);color:var(--ink)}
+.tb-sname{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tb-sdom{margin-left:auto;font:10.5px var(--f-mono);color:var(--mute)}
+.tb-fu{margin-top:10px}
+.tb-fuh{font-size:12px;font-weight:500;color:var(--ink2)}
+.tb-fub{display:flex;align-items:center;gap:8px;width:calc(100% + 12px);margin:0 -6px;padding:7px 6px;border:0;border-bottom:1px solid var(--line);background:transparent;text-align:left;font-size:12.5px;color:var(--ink);transition:background .1s}
+.tb-fub svg{color:var(--mute);flex:none}.tb-fub:hover{background:var(--bg3)}
+.tb-meta{margin-top:8px}
+@media (prefers-reduced-motion:reduce){.tb-w,.tb-cite,.tb-fub{animation:none}}
+
+/* ---- TRACE Bot thinking ---- */
+@keyframes th-shimmer{0%{background-position:150%}100%{background-position:-50%}}
+@keyframes th-spin{to{transform:rotate(1turn)}}
+.th{align-self:flex-start;width:100%;max-width:100%}
+.th-hd{display:inline-flex;align-items:center;gap:8px;margin:0 -6px;padding:4px 6px;border:0;background:transparent;border-radius:8px;color:var(--mute);transition:background .1s}
+.th-hd:hover{background:var(--bg3)}
+.th-label{font-size:13px;font-weight:500;white-space:nowrap}
+.th-shimmer{background-image:linear-gradient(90deg,var(--mute) 35%,var(--ink) 50%,var(--mute) 65%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:th-shimmer 1.4s linear infinite}
+.th-done{color:var(--ink2);animation:fi .35s ease-out both}
+.th-chev{transition:transform .3s}.th.open .th-chev{transform:rotate(180deg)}
+.th-wrap{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows .4s cubic-bezier(.23,1,.32,1),opacity .4s}
+.th.open .th-wrap{grid-template-rows:1fr;opacity:1}
+.th-in{overflow:hidden}
+.th-rows{margin:4px 0 2px 6px;padding:2px 0 2px 14px;border-left:1px solid var(--line);display:flex;flex-direction:column;gap:2px;min-height:6px}
+.th-row{display:flex;align-items:center;gap:8px;min-height:26px;font-size:12.5px}
+.th-ok{color:var(--mute);flex:none}
+.th-spin{width:12px;height:12px;flex:none;border-radius:50%;border:1.5px solid var(--line2);border-top-color:var(--ink2);animation:th-spin .7s linear infinite}
+.th-p{font-weight:500;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.th-s{margin-left:auto;flex:none;font-size:11px;color:var(--mute)}
+@media (prefers-reduced-motion:reduce){.th-shimmer{animation:none;color:var(--ink2)}.th-spin{animation:none}}
+
+/* ---- TRACE Bot chat / history ---- */
+.bot-tabs{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 16px;border-bottom:1px solid var(--line)}
+.bot-h{display:flex;flex-direction:column;gap:3px;width:100%;text-align:left;border:0;background:transparent;border-radius:10px;padding:10px 12px;color:var(--ink);transition:background .12s}
+.bot-h:hover{background:var(--bg3)}.bot-h.on{background:var(--accent-soft)}
+.bot-ht{font-weight:500;font-size:13.5px;line-height:1.35}
+#msgs .bot-h+.bot-h{margin-top:2px}
+#sugg[hidden],#askForm[hidden]{display:none!important}
