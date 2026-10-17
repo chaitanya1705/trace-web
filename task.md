@@ -6,6 +6,8 @@ Version 1.0 · 12 October 2026 (web progress reconciled 2026-10-17). This file r
 
 Statuses: TODO, IN_PROGRESS, BLOCKED, DONE. Select a task only when dependencies pass. On each update record date, commit(s), changed requirements, exact checks/results, limitations and next task. A screenshot or green UI toast is not completion evidence. Preserve IDs when splitting tasks (e.g. T-012a). If scope changes, update PRD/architecture/ontology and affected tests together. Do not remove later-phase requirements to make current release appear complete.
 
+| 2026-10-17 | T-010 (PulseLab ticket prefill) | IN_PROGRESS | Commit `a72ddd9`. Import now previews the reporter-supplied export and opens the existing New Ticket form populated with mapped fields; the user reviews/edits before create or update, and absent severity/project remain unset. Checks: `npm run lint` (`tsc --noEmit`) passed; `npm run build` passed; `git diff --check` passed. API tests could not collect because active Python lacks `psycopg_pool`; browser interaction was not run. Next: browser verification against the configured local API and web app. |
+
 ## P1 — Foundation and code knowledge
 
 ### T-001 · Compatibility and deployment spike · TODO (not a web task; no version matrix recorded)
