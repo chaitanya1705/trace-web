@@ -1325,7 +1325,10 @@ tr.dimrow td{color:var(--mute)}tr.dimrow b{color:var(--ink2)}
 .nx-foot{position:absolute;left:0;right:0;bottom:0;padding:6px 12px;background:var(--bg);border-top:1px solid var(--line);color:var(--mute)}
 .nx-side{border:1px solid var(--line);border-radius:12px;background:var(--bg);max-height:640px;display:flex;flex-direction:column;overflow:hidden}
 .nx-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:thin;padding:14px}
-.nx-fixed{flex:none;border-top:1px solid var(--line);padding:12px 14px;background:var(--bg)}
+.nx-fixed{flex:none;border-top:1px solid var(--line);padding:10px 14px;background:var(--bg)}
+.nx-more{margin-top:8px;font-size:11.5px;color:var(--mute)}
+.nx-more summary{cursor:pointer;font-weight:500;color:var(--ink2);list-style:revert}
+.nx-more p{margin:6px 0 0;line-height:1.45}
 .nx.full .nx-side{max-height:none}
 .nx-h{font:600 12px var(--f-body);color:var(--ink);margin:4px 0 8px;display:flex;gap:6px;align-items:baseline;justify-content:space-between}
 .nx-pills{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
