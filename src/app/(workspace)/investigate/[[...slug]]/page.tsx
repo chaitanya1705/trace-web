@@ -1,7 +1,10 @@
-import { Unavailable } from "@/components/ui/States";
+import { InvestigationView } from "@/features/investigate/InvestigationView";
+import { Investigations } from "@/features/investigate/Investigations";
 
 export const metadata = { title: "Investigate · TRACE" };
 
-export default function InvestigatePage() {
-  return <Unavailable title="Investigate" lede="Each investigation is TRACE working through the logs and the code one visible step at a time." needs="the graph database (Neo4j), log ingestion and the language model key" />;
+export default async function InvestigatePage({ params }: { params: Promise<{ slug?: string[] }> }) {
+  const { slug } = await params;
+  if (slug && slug.length >= 2) return <InvestigationView projectId={slug[0]} runId={slug[1]} />;
+  return <Investigations />;
 }
