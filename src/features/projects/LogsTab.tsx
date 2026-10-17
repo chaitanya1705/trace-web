@@ -8,6 +8,7 @@ import { toast } from "@/lib/toast";
 import { Badge, EnvBadge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
 import { Empty, ErrorState, Loading } from "@/components/ui/States";
+import { AppLogSource } from "./AppLogSource";
 import { DrainPanel } from "./DrainPanel";
 
 type Resource = { id: string; name: string; resource_type: string; log_availability: string; availability_note: string | null; last_event_at: string | null; environment_key: string; stored: number };
@@ -17,7 +18,7 @@ type Status = {
   drain: { connection_id: string; secret_configured: boolean; endpoint_url: string; last_batch_at: string | null } | null;
   last_capture: { id: string; status: string; stage: string | null; result_ref: { accepted?: number; duplicates?: number; read?: number; seconds?: number } | null; error: { message: string } | null; created_at: string } | null;
 };
-type LogRow = { id: string; event_time: string | null; ingested_at: string; level: string | null; source: string | null; service_hint: string | null; message: string; request_id: string | null; status_code: number | null; deployment_id: string | null; environment_key: string | null; extra: Record<string, any>; graph_status: string };
+type LogRow = { id: string; event_time: string | null; ingested_at: string; level: string | null; source: string | null; service_hint: string | null; message: string; request_id: string | null; status_code: number | null; deployment_id: string | null; environment_key: string | null; extra: Record<string, any>; graph_status: string; provider?: string };
 
 const when = (iso?: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "medium" }) : "unknown time");
 const LEVEL: Record<string, string> = { error: "crit", fatal: "crit", warning: "warn", info: "mute" };
@@ -77,6 +78,9 @@ export function LogsTab({ p }: { p: Project }) {
     <div className="stack">
       <p className="cs">Logs TRACE has stored for this project. Search uses TRACE filters on stored events, not provider query syntax. Collecting from the source is a separate, explicit step.</p>
 
+      <AppLogSource p={p} />
+
+      <h3 className="ct" style={{ marginTop: 6 }}>Other sources (Vercel)</h3>
       {!s.hosting_connection_id ? (
         <Empty title="Connect Vercel first" lede="Logs come from the hosting connection. Connect and verify Vercel on the Connectors tab, then choose projects in Log scope." />
       ) : !s.resources.length ? (
@@ -157,7 +161,7 @@ export function LogsTab({ p }: { p: Project }) {
           {logs.loading && !logs.data ? <div style={{ padding: 16 }}><Loading /></div> : null}
           {logs.data && !logs.data.length ? (
             <p className="muted" style={{ textAlign: "center", padding: 28 }}>
-              {cov?.empty_dataset ? "No logs stored yet. Capture live or set up the log drain, then they appear here. Having none is not the same as healthy." : "Nothing matches these filters."}
+              {cov?.empty_dataset ? "No logs stored yet. Set up the app log source above, then they appear here. Having none is not the same as healthy." : "Nothing matches these filters."}
             </p>
           ) : null}
           {logs.data?.length ? (
@@ -171,7 +175,7 @@ export function LogsTab({ p }: { p: Project }) {
                         <td className="mono xs">{r.event_time ? new Date(r.event_time).toLocaleTimeString() : <span className="muted">unknown</span>}<div className="xs muted">{r.event_time ? new Date(r.event_time).toLocaleDateString() : ""}</div></td>
                         <td>{r.level ? <Badge c={LEVEL[r.level] || "mute"}>{r.level}</Badge> : <span className="muted xs">—</span>}</td>
                         <td className="sm">{r.environment_key || <span className="muted">unmapped</span>}</td>
-                        <td><span className="mono xs" style={{ display: "block", maxWidth: 560, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.message}</span><div className="xs muted">{r.service_hint}{r.status_code ? ` · HTTP ${r.status_code}` : ""}</div></td>
+                        <td><span className="mono xs" style={{ display: "block", maxWidth: 560, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.message}</span><div className="xs muted">{r.service_hint}{r.status_code ? ` · HTTP ${r.status_code}` : ""}{r.provider ? ` · via ${r.provider === "app_push" ? "app" : r.provider === "vercel" ? "Vercel" : r.provider}` : ""}</div></td>
                         <td className="mono xs">{r.request_id ? r.request_id.slice(0, 8) : ""}</td>
                       </tr>
                       {sel === r.id ? (
