@@ -83,9 +83,18 @@ export function Tickets() {
   const importFile = async (f: File) => {
     try {
       const text = await f.text();
-      const r = await api<{ outcome: string; ticket: Ticket }>("/tickets/import/pulselab", { rawBody: text });
-      toast(r.data.outcome === "created" ? `Imported ${r.data.ticket.display_id}` : r.data.outcome === "unchanged" ? "Already imported; nothing changed" : `Updated ${r.data.ticket.display_id}`);
-      invalidate();
+      const r = await api<{ fields: Omit<TicketFormFields, "severity" | "environment_key" | "service_hint" | "project_id"> & {
+        severity: string | null; environment_key: string | null; service_hint: string | null; project_id: string | null;
+      } }>("/tickets/import/pulselab/preview", { rawBody: text });
+      const incident = JSON.parse(text) as Record<string, unknown>;
+      const initial = {
+        ...r.data.fields,
+        severity: r.data.fields.severity || "",
+        environment_key: r.data.fields.environment_key || "",
+        service_hint: r.data.fields.service_hint || "",
+        project_id: r.data.fields.project_id || "",
+      };
+      openLayer(<NewTicket projects={projects.data || []} initial={initial} pulselabExport={incident} />);
     } catch (e) {
       toast((e as ApiError).message);
     }
@@ -225,8 +234,14 @@ export function Tickets() {
   );
 }
 
-function NewTicket({ projects }: { projects: Project[] }) {
-  const [f, setF] = useState({ title: "", description: "", severity: "", environment_key: "", service_hint: "", project_id: "" });
+type TicketFormFields = { title: string; description: string; severity: string; environment_key: string; service_hint: string; project_id: string };
+
+function NewTicket({ projects, initial, pulselabExport }: {
+  projects: Project[];
+  initial?: TicketFormFields;
+  pulselabExport?: Record<string, unknown>;
+}) {
+  const [f, setF] = useState<TicketFormFields>(initial || { title: "", description: "", severity: "", environment_key: "", service_hint: "", project_id: "" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<ApiError | null>(null);
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF((o) => ({ ...o, [k]: e.target.value }));
@@ -239,8 +254,23 @@ function NewTicket({ projects }: { projects: Project[] }) {
       if (f.environment_key.trim()) body.environment_key = f.environment_key.trim();
       if (f.service_hint.trim()) body.service_hint = f.service_hint.trim();
       if (f.project_id) body.project_id = f.project_id;
-      const r = await api<{ ticket: Ticket }>("/tickets", { body });
-      toast(`${r.data.ticket.display_id} created`);
+      const r = pulselabExport
+        ? await api<{ ticket: Ticket; outcome: string }>("/tickets/import/pulselab/confirm", {
+          body: {
+            export: pulselabExport,
+            fields: {
+              title: f.title.trim(), description: f.description, severity: f.severity || null,
+              environment_key: f.environment_key?.trim() || null, service_hint: f.service_hint?.trim() || null,
+              project_id: f.project_id || null,
+            },
+          },
+        })
+        : await api<{ ticket: Ticket; outcome: string }>("/tickets", { body });
+      toast(pulselabExport && r.data.outcome === "updated"
+        ? `${r.data.ticket.display_id} updated`
+        : pulselabExport && r.data.outcome === "unchanged"
+          ? `${r.data.ticket.display_id} already matches this export`
+          : `${r.data.ticket.display_id} created`);
       invalidate();
       closeLayer();
     } catch (e) {
@@ -254,6 +284,10 @@ function NewTicket({ projects }: { projects: Project[] }) {
       <ModalHead><b style={{ flex: 1 }}>New ticket</b></ModalHead>
       <div className="mb">
         {err ? <ErrorState error={err} /> : null}
+        {pulselabExport ? <div className="sm" role="status" style={{ padding: 10, marginBottom: 12, border: "1px solid var(--line)", borderRadius: 6 }}>
+          Pre-filled from a reporter-supplied PulseLab incident export. Review and edit before creating.
+          {[!f.severity && "severity", !f.project_id && "project"].filter(Boolean).length ? ` The export did not provide ${[!f.severity && "severity", !f.project_id && "project"].filter(Boolean).join(" or ")}; choose only if known.` : ""}
+        </div> : null}
         <div className="field"><label className="lbl" htmlFor="ntT">Title</label><input className="input" id="ntT" value={f.title} onChange={set("title")} placeholder="What is the symptom?" /></div>
         <div className="field"><label className="lbl" htmlFor="ntD">Description <span className="muted" style={{ fontWeight: 400 }}>optional</span></label><textarea className="input" id="ntD" style={{ minHeight: 80 }} value={f.description} onChange={set("description")} placeholder="What was observed, and when. Describe symptoms, not causes." /></div>
         <div className="fgrid">
