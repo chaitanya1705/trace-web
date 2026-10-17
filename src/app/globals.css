@@ -1413,3 +1413,23 @@ span.nx-pill{cursor:default;display:inline-block}
 .bot-ht{font-weight:500;font-size:13.5px;line-height:1.35}
 #msgs .bot-h+.bot-h{margin-top:2px}
 #sugg[hidden],#askForm[hidden]{display:none!important}
+
+/* Bot answers rendered from Markdown */
+.tb-md{display:flex;flex-direction:column;gap:6px;min-width:0;overflow-wrap:anywhere}
+.tb-md .md-p{margin:0}
+.tb-md .md-h{font-weight:600;letter-spacing:-.01em;margin-top:6px}
+.tb-md .md-h1{font-size:16px}.tb-md .md-h2{font-size:15px}.tb-md .md-h3,.tb-md .md-h4{font-size:13.5px}
+.tb-md .md-h:first-child{margin-top:0}
+.tb-md .md-li{display:flex;gap:8px;align-items:baseline;margin-top:-2px}
+.tb-md .md-mark{flex:none;min-width:10px;color:var(--mute);text-align:right}
+.tb-md .md-mark.num{font-variant-numeric:tabular-nums;color:var(--ink2);min-width:16px}
+.tb-md .md-lt{min-width:0;flex:1}
+.tb-md .md-b{font-weight:600}
+.tb-md .md-i{font-style:italic}
+.tb-md .md-c{font:12px var(--f-mono);background:var(--bg2);box-shadow:0 0 0 1px var(--line);border-radius:4px;padding:0 4px}
+.tb-md .md-code{margin:2px 0;padding:8px 10px;border-radius:8px;background:var(--bg2);box-shadow:0 0 0 1px var(--line);font:12px/1.5 var(--f-mono);white-space:pre;overflow-x:auto}
+.tb-md .md-hr{border:0;border-top:1px solid var(--line);margin:4px 0;width:100%}
+.tb-md .md-tw{overflow-x:auto}
+.tb-md .md-table{border-collapse:collapse;font-size:12.5px;width:100%}
+.tb-md .md-table th,.tb-md .md-table td{border-bottom:1px solid var(--line);padding:4px 8px;text-align:left;vertical-align:top}
+.tb-md .md-table th{font-weight:600;color:var(--ink2)}
