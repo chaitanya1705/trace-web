@@ -8,6 +8,7 @@ export class ApiError extends Error {
     public code: string,
     public requestId: string,
     public status: number,
+    public details: Record<string, unknown> = {},
   ) {
     super(message);
   }
@@ -25,7 +26,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<Envelope
   const body = await res.json().catch(() => null);
   if (!res.ok) {
     const e = body?.error;
-    throw new ApiError(e?.message || res.statusText, e?.code || "error", body?.request_id || "-", res.status);
+    throw new ApiError(e?.message || res.statusText, e?.code || "error", body?.request_id || "-", res.status, e?.details || {});
   }
   return body as Envelope<T>;
 }
