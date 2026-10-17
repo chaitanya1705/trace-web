@@ -1,5 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
+import { Suspense } from "react";
 import type { Project, Readiness } from "@/lib/types";
 import { useApi } from "@/lib/useApi";
 import { Badge, Chip, EnvBadge } from "@/components/ui/Badge";
@@ -8,6 +9,7 @@ import { Icon } from "@/components/ui/Icon";
 import { LogoTile } from "@/components/ui/Logo";
 import { PageHead } from "@/components/ui/PageHead";
 import { Empty, ErrorState, Loading, Unavailable } from "@/components/ui/States";
+import { GraphExplorer } from "@/features/graph/GraphExplorer";
 import { ArchitectureTab } from "./Architecture";
 import { LogsTab } from "./LogsTab";
 import { ConnectorsTab, CodeTab, ScopeTab, TeamTab } from "./ProjectTabs";
@@ -87,6 +89,7 @@ function ProjectDetail({ pid, tab }: { pid: string; tab: string }) {
     { k: "connectors", label: "Connectors" },
     { k: "code", label: "Code" },
     { k: "scope", label: "Log scope" },
+    { k: "graph", label: "Graph" },
     { k: "architecture", label: "Architecture" },
     { k: "logs", label: "Logs" },
     { k: "team", label: "Team" },
@@ -108,6 +111,7 @@ function ProjectDetail({ pid, tab }: { pid: string; tab: string }) {
       {cur === "team" ? <TeamTab p={p} /> : null}
       {cur === "architecture" ? <ArchitectureTab projectId={p.id} /> : null}
       {cur === "logs" ? <LogsTab p={p} /> : null}
+      {cur === "graph" ? <Suspense fallback={<Loading />}><GraphExplorer projectId={p.id} /></Suspense> : null}
     </DetailShell>
   );
 }
