@@ -17,6 +17,10 @@ import { Empty, ErrorState, Loading } from "@/components/ui/States";
 type View = "need_project" | "open" | "resolved" | "all";
 type Counts = { need_project: number; open: number; resolved: number; all: number };
 
+/** Tickets the app's own error reports opened carry evidence_summary.auto (see trace-api app/domain/tickets/auto.py). */
+const isAuto = (t: Pick<Ticket, "evidence_summary">) => t.evidence_summary?.auto === true;
+const sourceLabel = (t: Pick<Ticket, "source" | "evidence_summary">) => (isAuto(t) ? "auto · app errors" : t.source);
+
 const ago = (iso: string) => {
   const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
   return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`;
@@ -74,7 +78,8 @@ export function Tickets() {
   if (sev) qs.set("severity", sev);
   if (env) qs.set("environment", env);
   if (cursors.length) qs.set("cursor", cursors[cursors.length - 1]);
-  const res = useApi<Ticket[]>(`/tickets?${qs}`);
+  // Polls so tickets opened from incoming app errors appear without a reload.
+  const res = useApi<Ticket[]>(`/tickets?${qs}`, () => 5000);
   const projects = useApi<Project[]>("/projects?limit=100");
   const counts = (res.meta?.coverage?.counts || { need_project: 0, open: 0, resolved: 0, all: 0 }) as Counts;
   const emptyDataset = !!res.meta?.coverage?.empty_dataset;
@@ -83,9 +88,18 @@ export function Tickets() {
   const importFile = async (f: File) => {
     try {
       const text = await f.text();
-      const r = await api<{ outcome: string; ticket: Ticket }>("/tickets/import/pulselab", { rawBody: text });
-      toast(r.data.outcome === "created" ? `Imported ${r.data.ticket.display_id}` : r.data.outcome === "unchanged" ? "Already imported; nothing changed" : `Updated ${r.data.ticket.display_id}`);
-      invalidate();
+      const r = await api<{ fields: Omit<TicketFormFields, "severity" | "environment_key" | "service_hint" | "project_id"> & {
+        severity: string | null; environment_key: string | null; service_hint: string | null; project_id: string | null;
+      } }>("/tickets/import/pulselab/preview", { rawBody: text });
+      const incident = JSON.parse(text) as Record<string, unknown>;
+      const initial = {
+        ...r.data.fields,
+        severity: r.data.fields.severity || "",
+        environment_key: r.data.fields.environment_key || "",
+        service_hint: r.data.fields.service_hint || "",
+        project_id: r.data.fields.project_id || "",
+      };
+      openLayer(<NewTicket projects={projects.data || []} initial={initial} pulselabExport={incident} />);
     } catch (e) {
       toast((e as ApiError).message);
     }
@@ -183,7 +197,7 @@ export function Tickets() {
                     <tr key={t.id} className="click trow" style={{ ["--i" as string]: Math.min(i, 12) }} tabIndex={0} onClick={() => openLayer(<TicketDetail id={t.id} projects={projects.data || []} />)} onKeyDown={(e) => { if (e.key === "Enter" && e.target === e.currentTarget) openLayer(<TicketDetail id={t.id} projects={projects.data || []} />); }}>
                       <td>
                         <div style={{ fontWeight: 500 }}>{t.title}</div>
-                        <div className="xs muted mono">{t.display_id}{t.service_hint ? ` · ${t.service_hint}` : ""} · {t.source}</div>
+                        <div className="xs muted mono">{t.display_id}{t.service_hint ? ` · ${t.service_hint}` : ""} · {sourceLabel(t)}</div>
                         {evidenceNote(t) ? <div className="xs muted">{evidenceNote(t)}</div> : null}
                       </td>
                       <td onClick={(e) => e.stopPropagation()}>
@@ -225,8 +239,14 @@ export function Tickets() {
   );
 }
 
-function NewTicket({ projects }: { projects: Project[] }) {
-  const [f, setF] = useState({ title: "", description: "", severity: "", environment_key: "", service_hint: "", project_id: "" });
+type TicketFormFields = { title: string; description: string; severity: string; environment_key: string; service_hint: string; project_id: string };
+
+function NewTicket({ projects, initial, pulselabExport }: {
+  projects: Project[];
+  initial?: TicketFormFields;
+  pulselabExport?: Record<string, unknown>;
+}) {
+  const [f, setF] = useState<TicketFormFields>(initial || { title: "", description: "", severity: "", environment_key: "", service_hint: "", project_id: "" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<ApiError | null>(null);
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF((o) => ({ ...o, [k]: e.target.value }));
@@ -239,8 +259,23 @@ function NewTicket({ projects }: { projects: Project[] }) {
       if (f.environment_key.trim()) body.environment_key = f.environment_key.trim();
       if (f.service_hint.trim()) body.service_hint = f.service_hint.trim();
       if (f.project_id) body.project_id = f.project_id;
-      const r = await api<{ ticket: Ticket }>("/tickets", { body });
-      toast(`${r.data.ticket.display_id} created`);
+      const r = pulselabExport
+        ? await api<{ ticket: Ticket; outcome: string }>("/tickets/import/pulselab/confirm", {
+          body: {
+            export: pulselabExport,
+            fields: {
+              title: f.title.trim(), description: f.description, severity: f.severity || null,
+              environment_key: f.environment_key?.trim() || null, service_hint: f.service_hint?.trim() || null,
+              project_id: f.project_id || null,
+            },
+          },
+        })
+        : await api<{ ticket: Ticket; outcome: string }>("/tickets", { body });
+      toast(pulselabExport && r.data.outcome === "updated"
+        ? `${r.data.ticket.display_id} updated`
+        : pulselabExport && r.data.outcome === "unchanged"
+          ? `${r.data.ticket.display_id} already matches this export`
+          : `${r.data.ticket.display_id} created`);
       invalidate();
       closeLayer();
     } catch (e) {
@@ -254,6 +289,10 @@ function NewTicket({ projects }: { projects: Project[] }) {
       <ModalHead><b style={{ flex: 1 }}>New ticket</b></ModalHead>
       <div className="mb">
         {err ? <ErrorState error={err} /> : null}
+        {pulselabExport ? <div className="sm" role="status" style={{ padding: 10, marginBottom: 12, border: "1px solid var(--line)", borderRadius: 6 }}>
+          Pre-filled from a reporter-supplied PulseLab incident export. Review and edit before creating.
+          {[!f.severity && "severity", !f.project_id && "project"].filter(Boolean).length ? ` The export did not provide ${[!f.severity && "severity", !f.project_id && "project"].filter(Boolean).join(" or ")}; choose only if known.` : ""}
+        </div> : null}
         <div className="field"><label className="lbl" htmlFor="ntT">Title</label><input className="input" id="ntT" value={f.title} onChange={set("title")} placeholder="What is the symptom?" /></div>
         <div className="field"><label className="lbl" htmlFor="ntD">Description <span className="muted" style={{ fontWeight: 400 }}>optional</span></label><textarea className="input" id="ntD" style={{ minHeight: 80 }} value={f.description} onChange={set("description")} placeholder="What was observed, and when. Describe symptoms, not causes." /></div>
         <div className="fgrid">
@@ -316,13 +355,14 @@ function TicketDetail({ id, projects }: { id: string; projects: Project[] }) {
               {t.severity ? <SevBadge s={t.severity} /> : <Badge c="mute">Severity not rated</Badge>}
               {t.environment_key ? <EnvBadge e={t.environment_key} /> : null}
               <Chip>{t.project_name || "No project yet"}</Chip>
-              <Chip>{t.source}</Chip>
+              <Chip>{sourceLabel(t)}</Chip>
             </div>
             {t.description ? <p className="sm ink2" style={{ whiteSpace: "pre-wrap" }}>{t.description}</p> : <p className="sm muted">No description.</p>}
             <dl className="kv" style={{ gridTemplateColumns: "170px 1fr", marginTop: 12 }}>
               {t.service_hint ? <><dt>Operation</dt><dd className="mono">{t.service_hint}</dd></> : null}
               <dt>Observed</dt><dd>{t.window_start ? `${new Date(t.window_start).toLocaleString()} → ${t.window_end ? new Date(t.window_end).toLocaleString() : "unknown"}` : <span className="muted">Time window unknown</span>}</dd>
               {t.source === "pulselab" && es.requests !== undefined && es.requests !== null ? <><dt>Reporter-supplied PulseLab export</dt><dd>{es.requests} requests · {es.backend_events ?? 0} backend events · {es.evidence_gaps ?? 0} gaps</dd></> : null}
+              {isAuto(t) ? <><dt>Failing requests</dt><dd>{es.occurrences} seen · first {es.first_seen ? new Date(es.first_seen).toLocaleString() : "unknown"} · last {es.last_seen ? new Date(es.last_seen).toLocaleString() : "unknown"}</dd></> : null}
               {es.target?.source_revision ? <><dt>Deployed revision</dt><dd className="mono">{String(es.target.source_revision).slice(0, 12)}</dd></> : null}
               <dt>Evidence sync</dt><dd>{evidenceNote(t) || "No evidence attached"}</dd>
               <dt>Revisions</dt><dd>{t.revisions.length}</dd>
@@ -378,8 +418,10 @@ function TicketLiveLogs({ ticket, logs, requestId, setRequestId }: {
 }) {
   const rows = logs.data || [];
   const coverage = logs.meta?.coverage as { stored_total?: number; matched?: number; empty_dataset?: boolean; source?: { configured?: boolean } } | null;
-  const requestIds = ticket.source === "pulselab" && Array.isArray(ticket.evidence_summary?.relevant_request_ids)
-    ? ticket.evidence_summary.relevant_request_ids.filter((id: unknown): id is string => typeof id === "string" && id.length > 0)
+  const auto = isAuto(ticket);
+  const ids = auto ? ticket.evidence_summary?.recent_request_ids : ticket.source === "pulselab" ? ticket.evidence_summary?.relevant_request_ids : null;
+  const requestIds = Array.isArray(ids)
+    ? ids.filter((id: unknown): id is string => typeof id === "string" && id.length > 0)
     : [];
   return (
     <section className="card" aria-label="Live project logs" style={{ marginTop: 14, padding: 14 }}>
@@ -392,8 +434,8 @@ function TicketLiveLogs({ ticket, logs, requestId, setRequestId }: {
       </div>
       {!ticket.project_id ? <p className="sm muted" style={{ marginBottom: 0 }}>Assign this ticket to a project to see its logs.</p> : null}
       {ticket.project_id && requestIds.length ? (
-        <div className="row wrapr" style={{ gap: 5, marginTop: 9 }} aria-label="Reporter supplied request IDs">
-          <span className="xs muted">Reporter supplied request IDs:</span>
+        <div className="row wrapr" style={{ gap: 5, marginTop: 9 }} aria-label={auto ? "Failing request IDs" : "Reporter supplied request IDs"}>
+          <span className="xs muted">{auto ? "Failing request IDs (app-reported):" : "Reporter supplied request IDs:"}</span>
           {requestIds.slice(0, 10).map((id) => <button key={id} className={`btn sm${requestId === id ? " pri" : ""}`} aria-pressed={requestId === id} onClick={() => setRequestId(requestId === id ? "" : id)}>{id}</button>)}
           {requestId ? <button className="btn sm" onClick={() => setRequestId("")}>Clear request filter</button> : null}
         </div>

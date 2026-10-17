@@ -305,6 +305,18 @@ export function InvestigationView({ projectId, runId }: { projectId: string; run
       }
     }, 480);
   };
+  const [proposing, setProposing] = useState(false);
+  const propose = async () => {
+    setProposing(true);
+    try {
+      const r = await call<{ id: string }>(`/projects/${projectId}/investigations/${runId}/changes`, { method: "POST", body: {} });
+      toast("Change proposed. Nothing was applied.");
+      window.location.href = `/changes/${r.data.id}`;
+    } catch (e) {
+      toast((e as ApiError).message);
+      setProposing(false);
+    }
+  };
   const rerun = async () => {
     if (!d) return;
     try {
@@ -341,6 +353,9 @@ export function InvestigationView({ projectId, runId }: { projectId: string; run
         <div className="row wrapr">
           <button className="btn" onClick={startReplay} disabled={live || !d.steps.length}><Icon n="refresh" c="sm" />Replay</button>
           <button className="btn" onClick={rerun} disabled={live} title="Run a new investigation on the same ticket"><Icon n="play" c="sm" />Rerun</button>
+          {d.finding?.status === "root_cause_identified" && !live ? (
+            <button className="btn pri" onClick={propose} disabled={proposing} title="Draft a code fix from the indexed source. It is only a proposal: nothing is applied."><Icon n="commit" c="sm" />{proposing ? "Drafting…" : "Propose a change"}</button>
+          ) : null}
           <button className="btn" onClick={() => askBot()} disabled={!d.items} title="Open TRACE Bot on this investigation"><Icon n="spark" c="sm" />Ask about this</button>
         </div>
       </div>
