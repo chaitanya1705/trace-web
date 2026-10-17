@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ApiError } from "@/lib/api";
 import { call as api } from "@/lib/call";
 import type { Check, Connection } from "@/lib/types";
@@ -25,6 +25,24 @@ export function statusBadge(s: string) {
   return <Badge c="crit">{s === "failed" ? "Failed" : s[0].toUpperCase() + s.slice(1)}</Badge>;
 }
 
+type AuthMode = { id: string; label: string; recommended: boolean; available: boolean; reason: string | null };
+type ProviderDesc = { provider: string; kind: string; auth_modes: AuthMode[] };
+
+/** Auth modes the API says this deployment cannot offer, with its reason, so nothing is presented as working when it is not. */
+function UnavailableModes({ modes }: { modes: AuthMode[] }) {
+  const off = modes.filter((m) => !m.available);
+  if (!off.length) return null;
+  return (
+    <div className="callout sm" style={{ margin: "0 0 12px" }}>
+      {off.map((m) => (
+        <div key={m.id}>
+          <b>{m.label}</b> is not available here. <span className="ink2">{m.reason}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const when = (iso?: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "never");
 
 /** Connect / verify / rotate / disconnect one provider for a draft or a project. Real checks only. */
@@ -38,8 +56,23 @@ export function ConnectionPanel({ kind, owner }: { kind: Kind; owner: Owner }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<ApiError | null>(null);
   const [rotating, setRotating] = useState(false);
-  /* GitHub does not redirect back when the app is already installed, so also offer the existing installations */
-  const installs = useApi<Array<{ id: number; account: string | null; repository_selection: string | null; suspended: boolean }>>(kind === "code" && list.data && !list.data.some((c) => c.kind === "code" && c.status !== "disconnected") ? "/connect/github/installations" : null);
+  const [pat, setPat] = useState("");
+  const providers = useApi<ProviderDesc[]>("/providers");
+  const modes = providers.data?.find((p) => p.kind === kind && (kind !== "hosting" || p.provider === "vercel"))?.auth_modes || [];
+  const appOk = modes.find((m) => m.id === "github_app")?.available;
+  const patMode = modes.find((m) => m.id === "github_pat" && m.available);
+  /* GitHub does not redirect back when the app is already installed, so also offer the existing installations (only when the App is configured) */
+  const installs = useApi<Array<{ id: number; account: string | null; repository_selection: string | null; suspended: boolean }>>(kind === "code" && appOk && list.data && !list.data.some((c) => c.kind === "code" && c.status !== "disconnected") ? "/connect/github/installations" : null);
+
+  /* checks run in the TRACE worker process; if one stays pending, say where to look instead of spinning forever */
+  const waiting = pending(conn);
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    setSlow(false);
+    if (!waiting) return;
+    const t = setTimeout(() => setSlow(true), 20000);
+    return () => clearTimeout(t);
+  }, [waiting, conn?.id]);
 
   const run = async (fn: () => Promise<unknown>, ok?: string) => {
     setBusy(true);
@@ -60,18 +93,32 @@ export function ConnectionPanel({ kind, owner }: { kind: Kind; owner: Owner }) {
       const r = await api<{ url: string }>("/connect/github/start", { body: owner.draftId ? { draft_id: owner.draftId } : { project_id: owner.projectId } });
       window.location.href = r.data.url; // GitHub asks the user to install/authorize, then returns to the setup page
     });
+  const connectGithubPat = () =>
+    run(async () => {
+      try {
+        await api(`${base(owner)}/connections`, { body: { provider: "github", auth_method: "github_pat", secret: pat.trim() } });
+      } finally {
+        setPat(""); // the token never stays in the page after it was sent, even when the request failed
+      }
+    }, "Checking the GitHub connection…");
   const connectVercel = () =>
     run(async () => {
-      await api(`${base(owner)}/connections`, {
-        body: { provider: "vercel", auth_method: "vercel_token", secret: token.trim(), config: team.trim() ? { team_id: team.trim() } : {} },
-      });
-      setToken("");
+      try {
+        await api(`${base(owner)}/connections`, {
+          body: { provider: "vercel", auth_method: "vercel_token", secret: token.trim(), config: team.trim() ? { team_id: team.trim() } : {} },
+        });
+      } finally {
+        setToken("");
+      }
     }, "Checking the Vercel connection…");
 
   const connectDb = () =>
     run(async () => {
-      await api(`${base(owner)}/connections`, { body: { provider: "postgres", auth_method: "postgres_dsn", secret: dsn.trim() } });
-      setDsn("");
+      try {
+        await api(`${base(owner)}/connections`, { body: { provider: "postgres", auth_method: "postgres_dsn", secret: dsn.trim() } });
+      } finally {
+        setDsn("");
+      }
     }, "Checking the database connection…");
 
   if (list.loading && !list.data) return <Loading label="Loading connection" />;
@@ -109,7 +156,7 @@ export function ConnectionPanel({ kind, owner }: { kind: Kind; owner: Owner }) {
               <LogoTile id="github" size={34} />
               <div>
                 <h3 className="ct">Connect GitHub</h3>
-                <p className="cs">You approve access on GitHub and choose which repositories TRACE may read. No password or token is typed here.</p>
+                <p className="cs">With the GitHub App you approve access on GitHub and choose which repositories TRACE may read; no password is typed here.</p>
               </div>
             </div>
             {installs.data?.length ? (
@@ -128,10 +175,24 @@ export function ConnectionPanel({ kind, owner }: { kind: Kind; owner: Owner }) {
                 ))}
               </div>
             ) : null}
-            <button className={`btn ${installs.data?.length ? "" : "pri"}`} disabled={busy} onClick={connectGithub}>
+            {providers.error ? <ErrorState error={providers.error} onRetry={providers.reload} /> : null}
+            {installs.error ? <ErrorState error={installs.error} onRetry={installs.reload} /> : null}
+            <UnavailableModes modes={modes} />
+            <button className={`btn ${installs.data?.length ? "" : "pri"}`} disabled={busy || appOk === false} title={appOk === false ? modes.find((m) => m.id === "github_app")?.reason || undefined : undefined} onClick={connectGithub}>
               <Icon n="out" c="sm" />
               {installs.data?.length ? "Install on another account or change access" : "Connect GitHub"}
             </button>
+            {patMode ? (
+              <div className="field" style={{ marginTop: 16 }}>
+                <label className="lbl" htmlFor="ghpat">Fine-grained personal access token <Badge c="warn">Trial mode</Badge></label>
+                <input id="ghpat" className="input mono" type="password" autoComplete="off" spellCheck={false} placeholder="github_pat_…" value={pat} onChange={(e) => setPat(e.target.value)} />
+                <div className="xs muted fhint">{patMode.reason} Stored encrypted, never shown again. Give it read-only Contents and Metadata access to the repositories you want.</div>
+                <button className="btn" style={{ marginTop: 8 }} disabled={busy || pat.trim().length < 8} onClick={connectGithubPat}>
+                  <Icon n="check" c="sm" />
+                  Verify and connect with token
+                </button>
+              </div>
+            ) : null}
           </>
         ) : (
           <>
@@ -142,6 +203,7 @@ export function ConnectionPanel({ kind, owner }: { kind: Kind; owner: Owner }) {
                 <p className="cs">Paste an access token from Vercel (Account Settings › Tokens). Vercel tokens cannot be read-only; TRACE only sends read requests.</p>
               </div>
             </div>
+            <UnavailableModes modes={modes} />
             <div className="fgrid">
               <div className="field">
                 <label className="lbl" htmlFor="vtok">Access token</label>
@@ -178,6 +240,7 @@ export function ConnectionPanel({ kind, owner }: { kind: Kind; owner: Owner }) {
             {statusBadge(conn.status)}
           </div>
           {conn.last_error ? <div className="callout warn sm" style={{ margin: "10px 0" }}>{conn.last_error.message}</div> : null}
+          {slow ? <div className="callout warn sm" role="status" style={{ margin: "10px 0" }}>Still checking after 20 seconds. Checks run in the TRACE worker process; if this does not change, make sure the worker is running.</div> : null}
           {last ? (
             <div className="chklist" style={{ marginTop: 10 }}>
               {last.stages.map((s) => (
@@ -199,7 +262,7 @@ export function ConnectionPanel({ kind, owner }: { kind: Kind; owner: Owner }) {
               <Icon n="refresh" c="sm" />
               Verify again
             </button>
-            {conn.provider === "github" ? (
+            {conn.provider === "github" && conn.auth_method === "github_app" && appOk !== false ? (
               <button className="btn sm" disabled={busy} onClick={connectGithub}>
                 <Icon n="out" c="sm" />
                 Change repository access

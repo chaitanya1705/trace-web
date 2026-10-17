@@ -1,10 +1,10 @@
 # trace-web porting log
 
-Source of truth: `D:\Trace\Plan's And Artifacts\Artifacts\index.html` (the prototype), plus `Plans/TRACE/*`.
+Source of truth: the HTML prototype, plus `TRACE/*` as amended by `../trace-api/docs/PLAN.md`.
 Rules taken from the plans: Next.js + TypeScript + Tailwind (no preflight, prototype CSS is global), real routes
 (no hash routing), auth behind an interface (no localStorage session), responsive thresholds 1260/1180/1100/900/640.
 
-**Connector scope (user decision): only GitHub (code), Vercel (hosting) and Supabase (database/backend add-on) are supported.** Everything else in the
+**Connector scope (user decision, amended 2026-10-16 by `trace-api/docs/PLAN.md`): only GitHub (code) and Vercel (hosting) are supported; Supabase is excluded.** Everything else in the
 prototype catalog (AWS, Azure, GCP, GitLab, Bitbucket, Azure DevOps, databases, migration tools, CI tools, OTel, Jira,
 ServiceNow, Railway) is removed from catalogs, wizards, landing marquee and copy. Sample incident data that
 named those providers was reworded to Vercel runtime logs / GitHub diffs; change tickets use GitHub Issues.
@@ -56,3 +56,9 @@ Topology pages are superseded (PRD D-10) and are not ported as routes.
 - Database: schema metadata read from a Postgres the user connects on the Connectors tab (read-only session, no rows). It moves to graph-derived schema later.
 - Code graph (other session's `CodeGraph`) is kept as the middle view.
 
+## 2026-10-17 (W1): shell audit, wizard completeness
+- Sidebar at <= 900 px is `inert` while closed, opens with focus inside, closes on Escape or scrim click and returns focus to its opener.
+- Project scope selector shows only on Investigate (the only page that reads it), resets to All when the project is no longer authorized, and every scope change calls `invalidate()`. There is no client cache (`useApi` refetches); TanStack Query is not used.
+- Landing: no "Sign in" (there is no login), no Supabase; example figures are prefixed "Example" and the sample frame says "Sample data".
+- Wizard: name conflicts are shown at the name field (checked on Continue and again on activate); Projects lists unfinished drafts to resume or discard; Review shows the names of the chosen log-scope resources and repositories; connectors read `GET /providers` and show unavailable auth modes with the API's reason. GitHub App connect stays disabled where the API says it is not configured; the labelled trial-mode token form is offered because the API reports it available.
+- Project Code tab: services and per-repository service/path mappings (one repository to many services).

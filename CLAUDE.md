@@ -1,7 +1,10 @@
 # trace-web: instructions for Claude
 
-Next.js frontend for TRACE. Read `README.md`, `PORTING.md` and the plans in `D:\Trace\Plan's And Artifacts\Plans\TRACE\` first
-(`Context.md`, `PRD.md`, `architecture.md`, `tasks.md`). Only GitHub, Vercel and Supabase connectors are supported for now.
+Next.js frontend for TRACE. Read `README.md`, `PORTING.md` and `task.md` (the web half of the backlog) first. The authoritative plans are in the
+API repo (`../trace-api/`): `docs/PLAN.md` (user decisions that override the spec), `task.md`, `docs/WEB_INTEGRATION.md` (screen to endpoint map)
+and the original spec package in `TRACE/` (`Context.md`, `PRD.md`, `architecture.md`, `ontology.md`; a copy is in `TRACE/` here). The workspace
+wave plan is `../.omc/plans/trace-completion.md`. Only **GitHub (code) and Vercel (hosting)** connectors are supported (plus the generic app-log source);
+Supabase is excluded and Settings is dropped (PLAN.md section 1).
 
 ## Tools to use
 - **Code review:** before calling a task done, run the `/code-review` skill (add `--fix` to apply findings) on the changed files.
